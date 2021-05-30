@@ -11,7 +11,7 @@ def print_metadata(metadata, src=None):
     print()
 
 
-def time2frame(time: float, sample_rate: int) -> int:
+def time2sample(time: float, sample_rate: int) -> int:
     """converts time to number of sample
 
     Args:
@@ -24,14 +24,14 @@ def time2frame(time: float, sample_rate: int) -> int:
     return round(time * sample_rate)
 
 
-def frame2time(frame: int, sample_rate: int) -> float:
-    """Converts frame into seconds
+def sample2time(sample: int, sample_rate: int) -> float:
+    """Converts sample into seconds
 
     Args:
-        frame (int): frame to be converted into seconds
+        sample (int): sample to be converted into seconds
         sample_rate (int): sample rate to use
 
     Returns:
         float: second corresponding to the sample
     """
-    return frame / sample_rate
+    return sample / sample_rate

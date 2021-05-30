@@ -1,13 +1,15 @@
 import DALI as dali_code
+import random
 import pathlib
 from dataclasses import dataclass
 import typing as t
+import re
 
 from torch.utils.data import Dataset
 import torchaudio
 import torchaudio.functional as F
 import torchaudio.transforms as T
-from utils import frame2time
+from utils import sample2time, time2sample
 """
 entry.info --> {'id': 'a_dali_unique_id',
                 'artist': 'An Artist',
@@ -31,6 +33,11 @@ entry.annotations --> {'annot': {'the annotations themselves'},
                        'type': 'horizontal' or 'vertical',
                        'annot_param': {'fr': float(frame rate used in the annotation process),
                                       'offset': float(offset value)}}
+                                      
+{'text': 'wo', # the annotation itself.
+                 'time': [12.534, 12.659], # the begining and end of the  segment in seconds.
+                 'freq': [466.1637615180899, 466.1637615180899], # The range of frequency the text information is covering. At the lowest level, syllables, it corresponds to the vocal note.
+                 'index': 0} # link with the upper level. For example, index 0 at the 'words' level means that that particular word below to first line ([0]). The paragraphs level has no index key.
 """
 
 ROOT = pathlib.Path(__name__).parent.absolute()
@@ -51,7 +58,7 @@ class Chunk:
     lyrics: str
 
 class DaliDataset(Dataset):
-    def __init__(self, root_dir, chunk_size=16000, transform=None):
+    def __init__(self, root_dir, transform=None):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -63,7 +70,6 @@ class DaliDataset(Dataset):
         self.dali_data_path = self.root_dir / "dali"
         self.dali_audio_path = self.root_dir / "audio"
         self._load_data()
-        self.chunk_size = chunk_size
         self.chunk_map: t.List[Chunk] = []
         self.dali_data = {}
         self.transform = transform
@@ -81,32 +87,65 @@ class DaliDataset(Dataset):
             entry.info["audio"]["metadata"] = torchaudio.info(file.absolute())
             if entry.info["metadata"]["language"] == "english":
                 self.dali_data[iden] = entry
+                sample_rate = entry.info["audio"]["metadata"].sample_rate
 
+
+                chunk_start = 0
                 notes = iter(entry.annotations["annot"]["notes"])
-                initial_window = []
-                for c in range(int(dali_data.info["audio"]["metadata"].num_samples / self.chunk_size)):
-                    init_sample = c * self.chunk_size
-                    end_sample = (c + 1) * self.chunk_size-1
-                    initial_window.append([init_sample, end_sample])
+                lyric = ' '.join([p['text'] for p in entry.annotations["annot"]['paragraphs']])
+                while True:
+                    length = random.randrange(5, 10)
+                    chunk_end = chunk_start + length
+                    text_notes = []
+                    for note in notes:
+                        note_start, note_end = note['time']
+                        if chunk_start <= note_start and note_end <= chunk_end:
+                            text_notes.append(note['text'])
+                        if note_end > chunk_end:
+                            chunk_end = note_end
+                            break
+                        
+                    if match := re.search('\s?'.join(text_notes), lyric):
+                        text = match.group(0)
+                    else:
+                        raise RuntimeError("No match found")
+                    
+                    self.chunk_map.append(
+                        Chunk(
+                              iden, 
+                              time2sample(chunk_start, sample_rate), 
+                              time2sample(chunk_end, sample_rate), 
+                              chunk_start, 
+                              chunk_end,
+                              text) 
+                    raise
+                              
+                    
+                # notes = iter(entry.annotations["annot"]["notes"])
+                # initial_window = []
+                # for c in range(int(dali_data.info["audio"]["metadata"].num_samples / self.chunk_size)):
+                #     init_sample = c * self.chunk_size
+                #     end_sample = (c + 1) * self.chunk_size-1
+                #     initial_window.append([init_sample, end_sample])
 
-                for chunk, idx in enumerate(initial_window):
-                    init_time = frame2time(chunk[0], entry.info["audio"]["metadata"].sample_rate)
-                    end_time =  frame2time(end_sample, entry.info["audio"]["metadata"].sample_rate)
+                # for chunk, idx in enumerate(initial_window):
+                #     init_time = frame2time(chunk[0], entry.info["audio"]["metadata"].sample_rate)
+                #     end_time =  frame2time(end_sample, entry.info["audio"]["metadata"].sample_rate)
 
 
-                    valid_notes = []
-                    note = "START"
-                    while end_time > note["time"][1] or note != "END":
-                        if note is None or note == "START":
-                            try:
-                                note = next(notes)
-                            except StopIteration:
-                                note = "END"
-                        if note["time"][1] < end_time:
-                            valid_notes.append(note)
-                            note = None
-                        else:
-                            # set init on the next frame
+                #     valid_notes = []
+                #     note = "START"
+                #     while end_time > note["time"][1] or note != "END":
+                #         if note is None or note == "START":
+                #             try:
+                #                 note = next(notes)
+                #             except StopIteration:
+                #                 note = "END"
+                #         if note["time"][1] < end_time:
+                #             valid_notes.append(note)
+                #             note = None
+                #         else:
+                #             # set init on the next frame
                     
 
 
