@@ -118,7 +118,7 @@ class DaliDataset(Dataset):
                               chunk_start, 
                               chunk_end,
                               text) 
-                    raise
+                    raise  
                               
                     
                 # notes = iter(entry.annotations["annot"]["notes"])
