@@ -26,7 +26,6 @@ def time2sample(time: float, sample_rate: int) -> int:
 
 def sample2time(sample: int, sample_rate: int) -> float:
     """Converts sample into seconds
-
     Args:
         sample (int): sample to be converted into seconds
         sample_rate (int): sample rate to use
