@@ -1,0 +1,4 @@
+1	Demucs
+2	transformers[torch]
+3	torch
+4	torchaudio
