@@ -1,19 +1,20 @@
+import nltk as nltk
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
 
 from demucs.pretrained import load_pretrained
-from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+from transformers import Wav2Vec2ForCTC
 
 
 class DemucsWav2Vec(nn.Module):
     def __init__(self):
         super().__init__()
+
         self.demucs = load_pretrained("demucs")
         self.resample = torchaudio.transforms.Resample(44100, 16000)
         self.wav2vec = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
-        self.wav2vec_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
 
     def forward(self, input_tensor):
         # Demucs:

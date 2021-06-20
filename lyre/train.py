@@ -1,13 +1,17 @@
 import os
 import time
+
+import nltk
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from jiwer import wer
 import wandb
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
+from transformers import Wav2Vec2Tokenizer, AutoTokenizer
 
 from lyre.data import DaliDataset
 from lyre.model import DemucsWav2Vec
@@ -20,6 +24,27 @@ def accuracy(predicted_batch, ground_truth_batch):
     acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
     return acum
 
+def correct_sentence(input_text):
+    sentences = nltk.sent_tokenize(input_text)
+    return (' '.join([s.replace(s[0], s[0].capitalize(), 1) for s in sentences]))
+
+# def decode(id2letter, logits):
+#     predicted_ids = torch.argmax(logits, dim=-1)
+#     transcription = wav2vec_tokenizer.decode(predicted_ids[0])
+#     return correct_sentence(transcription.lower())
+
+def convert_id_to_string(tokenizer, predicted_ids):
+    predicted_tokens = tokenizer.convert_ids_to_tokens(predicted_ids.squeeze())
+    predicted_string = ''
+    for token in predicted_tokens:
+        if token == '<pad>':
+            pass
+        elif token == '|':
+            predicted_string += ' '
+        else:
+            predicted_string += token
+
+    return ' '.join(predicted_string.split())
 
 def train_single_epoch(data: DataLoader, model, optimizer, criterion):
     model.train()
@@ -95,6 +120,7 @@ def test_model(test_data, model, criterion):
     return test_loss, test_acc
 
 
+
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
@@ -128,12 +154,26 @@ if __name__ == "__main__":
     test_dataset, valid_dataset, train_dataset = \
         random_split(dataset, [test_len, val_len, len(dataset) - val_len - test_len])
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-    val_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
+    tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
+
+
+    def collate(batch: list):
+        pass
+    # # tokenizer.batch_decode(encoded)
+    #     for b in batch:
+    #         waveform, lyric = b
+    #         tokenizer("AIDL", return_tensors='pt')
+    #         tokenizer(["I can create some tokens".upper(), "nothing to share".upper()], return_tensors='pt',
+    #                   padding=True)
+    #     return source, batch_target
+
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate)
+    val_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate)
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate)
 
     # Load the model
     model = DemucsWav2Vec().to(device)
+
     wandb.watch(model)
     criterion = torch.nn.CTCLoss().to(device)
 
