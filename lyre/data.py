@@ -1,17 +1,15 @@
-import DALI as dali_code
-import random
-import pathlib
-from dataclasses import dataclass
-import typing as t
-import re
 import math
-from tqdm import tqdm
+import pathlib
+import re
+import typing as t
+from dataclasses import dataclass
 
-from torch.utils.data import Dataset
+import DALI as dali_code
 import torch
 import torchaudio
-import torchaudio.functional as F
 import torchaudio.transforms as T
+from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from .utils import time2sample
 
@@ -90,6 +88,7 @@ class DaliDataset(Dataset):
         print("Loading DALI data from", self.root_dir)
         dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, self.root_dir / "gt_v1.0_22_11_18.gz", skip=[],
                                                    keep=[])
+        gt = dali_code.utilities.read_gzip(self.root_dir / "gt_v1.0_22_11_18.gz")
         print("Generating dataset information")
         # dali_info = dali_code.get_info(DALI_DATA_PATH / 'info' / 'DALI_DATA_INFO.gz')
         files = list(self.dali_audio_path.glob("*.mp3"))
@@ -113,9 +112,13 @@ class DaliDataset(Dataset):
                     lyric = " ".join([p["text"] for p in entry.annotations["annot"]["paragraphs"]])
                     current_note = None
                     for chunk in range(chunks):
-                        chunk_start = chunk * self.length
+                        if self.length is None:
+                            chunk_start = 0
+                            chunk_end = track_length - 1
+                        else:
+                            chunk_start = chunk * self.length
+                            chunk_end = (chunk + 1) * self.length - 1
                         audio_start = chunk_start
-                        chunk_end = (chunk + 1) * self.length - 1
                         if chunk == (chunks - 1):
                             audio_end = track_length - 1
                         else:
@@ -181,7 +184,10 @@ class DaliDataset(Dataset):
 
         start_silence = chunk_meta.audio_start - chunk_meta.init_sample
         end_silence = chunk_meta.end_sample - chunk_meta.audio_end
-        end_silence = end_silence + (self.length - (start_silence + waveform.size()[1] + end_silence))
+        if self.length is not None:
+            end_silence = end_silence + (self.length - (start_silence + waveform.size()[1] + end_silence))
         waveform = torch.cat((torch.zeros(channels, start_silence), waveform, torch.zeros(channels, end_silence)), 1)
+        if channels == 1:
+            waveform = torch.stack((waveform, waveform))
 
-        return {"waveform": waveform, "lyrics": chunk_meta.lyrics}
+        return (waveform, chunk_meta.lyrics)

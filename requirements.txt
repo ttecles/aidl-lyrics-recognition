@@ -2,3 +2,6 @@ numpy
 dali-dataset
 torch
 torchaudio
+wandb
+demucs
+transformers

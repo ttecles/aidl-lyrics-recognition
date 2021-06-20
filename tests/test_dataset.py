@@ -1,6 +1,6 @@
 import pathlib
 from unittest import TestCase
-from unittest.mock import patch, Mock, PropertyMock
+from unittest.mock import patch
 
 from DALI import Annotations
 
@@ -9,7 +9,6 @@ from lyre.utils import sample2time
 
 
 class TestDaliDataset(TestCase):
-
 
     def test_creation_of_dataset(self):
         self.maxDiff = None
@@ -33,7 +32,7 @@ class TestDaliDataset(TestCase):
             self.assertListEqual(dt.chunk_map, [
                 Chunk(song_id='test',
                       init_sample=0 * chunk_length, end_sample=1 * chunk_length - 1,
-                      audio_start=0,  audio_end=1 * chunk_length - 1,
+                      audio_start=0, audio_end=1 * chunk_length - 1,
                       lyrics='I am'),
                 Chunk(song_id='test',
                       init_sample=1 * chunk_length, end_sample=2 * chunk_length - 1,
@@ -45,6 +44,6 @@ class TestDaliDataset(TestCase):
                       lyrics='mazing')
             ])
 
-            self.assertEqual(tuple(dt[0]['waveform'].size()), (2, chunk_length))
-            self.assertEqual(tuple(dt[1]['waveform'].size()), (2, chunk_length))
-            self.assertEqual(tuple(dt[2]['waveform'].size()), (2, chunk_length))
+            self.assertEqual(tuple(dt[0][0].size()), (2, chunk_length))
+            self.assertEqual(tuple(dt[1][0].size()), (2, chunk_length))
+            self.assertEqual(tuple(dt[2][0].size()), (2, chunk_length))
