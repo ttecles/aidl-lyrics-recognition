@@ -11,12 +11,14 @@ import wandb
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import random_split
-from transformers import Wav2Vec2Tokenizer, AutoTokenizer
+from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset
 from lyre.model import DemucsWav2Vec
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
+torch.cuda.empty_cache()
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -137,12 +139,12 @@ if __name__ == "__main__":
     }
 
     wandb.login(key=os.environ['WANDB_KEY'])
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
                config=config_defaults)
     config = wandb.config
-
+    # wandb.
     # Load the dataset
     if not os.path.isdir("../data"):
         raise RuntimeError("Are you in the root folder")
@@ -158,14 +160,10 @@ if __name__ == "__main__":
 
 
     def collate(batch: list):
-        pass
-    # # tokenizer.batch_decode(encoded)
-    #     for b in batch:
-    #         waveform, lyric = b
-    #         tokenizer("AIDL", return_tensors='pt')
-    #         tokenizer(["I can create some tokens".upper(), "nothing to share".upper()], return_tensors='pt',
-    #                   padding=True)
-    #     return source, batch_target
+        # tokenizer.batch_decode(encoded)
+        waveforms, lyrics = zip(*batch)
+        lyrics_ids = tokenizer(lyrics, return_tensors='pt', padding=True)['input_ids']
+        return torch.stack(waveforms), lyrics_ids
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate)
     val_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate)
