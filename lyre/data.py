@@ -12,7 +12,6 @@ import torch
 import torchaudio
 import torchaudio.transforms as T
 from torch.utils.data import Dataset
-from tqdm import tqdm
 
 from .utils import time2sample
 
@@ -57,137 +56,159 @@ class Chunk:
     lyrics: str
 
 
+def _process_file(entry, samplerate, length, stride):
+    chunk_map = []
+    file = entry.info["audio"]["path"]
+    sample_rate = entry.info["audio"]["metadata"].sample_rate
+    track_length = int(samplerate / sample_rate * entry.info["audio"]["metadata"].num_frames)
+    if length is None or track_length < length:
+        chunks = 1
+    else:
+        chunks = int(math.ceil((track_length - length) / stride) + 1)
+
+    notes = iter(entry.annotations["annot"]["notes"])
+    lyric = " ".join([p["text"] for p in entry.annotations["annot"]["paragraphs"]])
+    current_note = None
+    for chunk in range(chunks):
+        if length is None:
+            chunk_start = 0
+            chunk_end = track_length - 1
+        else:
+            chunk_start = chunk * length
+            chunk_end = (chunk + 1) * length - 1
+        audio_start = chunk_start
+
+        if chunk == (chunks - 1):
+            # Final chunk
+            audio_end = track_length - 1
+        else:
+            audio_end = chunk_end
+
+        text_notes = []
+        skip_chunk = False
+        while True:
+            if current_note is None:
+                try:
+                    current_note = next(notes)
+                    time_note_start, time_note_end = current_note["time"]
+                    if time_note_start < 0 or time_note_end < 0:
+                        print(f"Negative notes in {entry.info['id']}")
+                        return []
+                    note_start = time2sample(time_note_start, sample_rate=samplerate)
+                    note_end = time2sample(time_note_end, sample_rate=samplerate)
+                except StopIteration:
+                    break
+            if note_start > chunk_end:
+                break
+            elif note_start < audio_start:
+
+                if note_end < chunk_end:
+                    audio_start = note_end + 1
+                else:
+                    # note is larger than the chunk
+                    skip_chunk = True
+                    break
+                current_note = None
+                continue
+            elif audio_start <= note_start and note_end <= chunk_end:
+                text_notes.append(re.escape(current_note["text"].replace("~", "")))
+                current_note = None
+            elif note_end > chunk_end:
+                audio_end = note_start - 1
+                break
+
+        if not skip_chunk:
+            try:
+                if text_notes and (match := re.search("\s?".join(text_notes), lyric)):
+                    text = match.group(0)
+                else:
+                    text = ""
+            except:
+                print(text_notes)
+            chunk = Chunk(
+                entry.info['id'],
+                chunk_start,
+                chunk_end,
+                audio_start,
+                audio_end,
+                text.upper(),
+            )
+            if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end:
+                print("Invalid Chunk: ", chunk)
+            else:
+                chunk_map.append(chunk)
+    return chunk_map
+
+
 class DaliDataset(Dataset):
-    def __init__(self, root_dir, length=None, stride=None, normalize=True, samplerate=44100, channels=2):
-        """[summary]
+
+    def __init__(self, dali_data, dali_audio_path, gt_file=None, blacklist=None, length=None, stride=None,
+                 normalize=True, samplerate=44100, ncc: t.Tuple[t.Optional[float], t.Optional[float]] = None,
+                 workers=None):
+        """
 
         Args:
-            root_dir ([type]): [description]
-            metadata ([type]): [description]
-            length ([type], optional): [description]. Defaults to None.
-            stride ([type], optional): [description]. Defaults to None.
-            normalize (bool, optional): [description]. Defaults to True.
-            samplerate (int, optional): [description]. Defaults to 44100.
-            channels (int, optional): [description]. Defaults to 2.
+            dali_data: folder containing dali data or the loaded dali dataset
+            dali_audio_path: path to the dali audio files
+            gt_file: Dali's Ground thruth file
+            length: length in samples of the chunks
+            stride: stride applied on chunks
+            normalize: normalize chunk audio
+            samplerate: output sample rate
+            ncc: values used for filtering dali dataset. NCC must be between min and max. Value must be between 0 and 1
         """
-        if isinstance(root_dir, str):
-            self.root_dir = pathlib.Path(root_dir).absolute()
+        if isinstance(dali_data, dict):
+            self.dali_data = dali_data
         else:
-            self.root_dir = root_dir.absolute()
-        self.dali_data_path = self.root_dir / "dali"
-        self.dali_audio_path = self.root_dir / "audio"
+            self.dali_data = None
+            if isinstance(dali_data, str):
+                dali_data = pathlib.Path(dali_data)
+            self.dali_data_path = dali_data.resolve()
+        self.dali_data_subset_ident = []
+
+        if isinstance(dali_audio_path, str):
+            dali_audio_path = pathlib.Path(dali_audio_path)
+        self.dali_audio_path = dali_audio_path
+
+        if isinstance(gt_file, str):
+            gt_file = pathlib.Path(gt_file)
+        self.gt_file = gt_file
+
+        self.blacklist = blacklist or []
         self.length = length
         self.stride = stride or length
         self.normalize = normalize
         self.samplerate = samplerate
-        self.channels = channels
         self.chunk_map: t.List[Chunk] = []
-        self.dali_data = {}
-
+        if ncc is not None:
+            self.min_ncc = ncc[0] or 0
+            self.max_ncc = ncc[1] or 1
+        else:
+            self.min_ncc = 0
+            self.max_ncc = 1
         self._load_data()
 
-    @staticmethod
-    def _process_file(entry, samplerate, length, stride):
-        chunk_map = []
-        file = entry.info["audio"]["path"]
-
-        if entry.info["metadata"]["language"] == "english":
-            sample_rate = entry.info["audio"]["metadata"].sample_rate
-            track_length = int(samplerate / sample_rate * entry.info["audio"]["metadata"].num_frames)
-            if length is None or track_length < length:
-                chunks = 1
-            else:
-                chunks = int(math.ceil((track_length - length) / stride) + 1)
-
-            notes = iter(entry.annotations["annot"]["notes"])
-            lyric = " ".join([p["text"] for p in entry.annotations["annot"]["paragraphs"]])
-            current_note = None
-            for chunk in range(chunks):
-                if length is None:
-                    chunk_start = 0
-                    chunk_end = track_length - 1
-                else:
-                    chunk_start = chunk * length
-                    chunk_end = (chunk + 1) * length - 1
-                audio_start = chunk_start
-
-                if chunk == (chunks - 1):
-                    # Final chunk
-                    audio_end = track_length - 1
-                else:
-                    audio_end = chunk_end
-
-                text_notes = []
-                skip_chunk = False
-                while True:
-                    if current_note is None:
-                        try:
-                            current_note = next(notes)
-                            time_note_start, time_note_end = current_note["time"]
-                            note_start = time2sample(time_note_start, sample_rate=samplerate)
-                            note_end = time2sample(time_note_end, sample_rate=samplerate)
-                        except StopIteration:
-                            break
-                    if note_start > chunk_end:
-                        break
-                    elif note_start < audio_start:
-
-                        if note_end < chunk_end:
-                            audio_start = note_end + 1
-                        else:
-                            # note is larger than the chunk
-                            skip_chunk = True
-                            break
-                        current_note = None
-                        continue
-                    elif audio_start <= note_start and note_end <= chunk_end:
-                        text_notes.append(re.escape(current_note["text"].replace("~", "")))
-                        current_note = None
-                    elif note_end > chunk_end:
-                        audio_end = note_start - 1
-                        break
-
-                if not skip_chunk:
-                    try:
-                        if text_notes and (match := re.search("\s?".join(text_notes), lyric)):
-                            text = match.group(0)
-                        else:
-                            text = ""
-                    except:
-                        print(text_notes)
-
-                    chunk_map.append(
-                        Chunk(
-                            entry.info['id'],
-                            chunk_start,
-                            chunk_end,
-                            audio_start,
-                            audio_end,
-                            text.upper(),
-                        )
-                    )
-        return chunk_map
-
     def _load_data(self):
-        # ground_truth = dali_code.utilities.read_gzip(self.root_dir / "gt_v1.0_22_11_18.gz")
-        print("Loading DALI data from", self.root_dir)
-        dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, self.root_dir / "gt_v1.0_22_11_18.gz", skip=[],
-                                                   keep=[])
-        gt = dali_code.utilities.read_gzip(self.root_dir / "gt_v1.0_22_11_18.gz")
+        if not self.dali_data:
+            print("Loading DALI data from ", self.dali_data_path)
+            self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, self.gt_file, skip=self.blacklist)
+
         print("Generating dataset information")
-        # dali_info = dali_code.get_info(DALI_DATA_PATH / 'info' / 'DALI_DATA_INFO.gz')
         files = list(self.dali_audio_path.glob("*.mp3"))
 
         for file in files:
             iden = file.stem
-            dali_data[iden].info["audio"]["path"] = file.absolute()
-            dali_data[iden].info["audio"]["metadata"] = torchaudio.info(file.absolute())
-            self.dali_data[iden] = dali_data[iden]
+            if iden in self.dali_data and self.dali_data[iden].info["metadata"]["language"] == "english" and \
+                self.min_ncc <= self.dali_data[iden].info["scores"]["NCC"] < self.max_ncc:
+                self.dali_data[iden].info["audio"]["path"] = file.absolute()
+                self.dali_data[iden].info["audio"]["metadata"] = torchaudio.info(file.absolute())
+                self.dali_data_subset_ident.append(iden)
 
-        with Pool(max(multiprocessing.cpu_count()-2, 1)) as p:
+        print("Generate Chunks")
+        with Pool(max(multiprocessing.cpu_count() - 2, 1)) as p:
             result = p.map(
-                partial(self._process_file, samplerate=self.samplerate, length=self.length, stride=self.stride),
-                self.dali_data.values())
+                partial(_process_file, samplerate=self.samplerate, length=self.length, stride=self.stride),
+                [self.dali_data[i] for i in self.dali_data_subset_ident])
 
         for chunks in result:
             if chunks:
@@ -217,7 +238,12 @@ class DaliDataset(Dataset):
         end_silence = chunk_meta.end_sample - chunk_meta.audio_end
         if self.length is not None:
             end_silence = end_silence + (self.length - (start_silence + waveform.size()[1] + end_silence))
-        waveform = torch.cat((torch.zeros(channels, start_silence), waveform, torch.zeros(channels, end_silence)), 1)
+        try:
+            waveform = torch.cat((torch.zeros(channels, start_silence), waveform, torch.zeros(channels, end_silence)),
+                                 1)
+        except:
+            print(chunk_meta)
+            raise
         if channels == 1:
             waveform = torch.stack((waveform, waveform)).squeeze()
 

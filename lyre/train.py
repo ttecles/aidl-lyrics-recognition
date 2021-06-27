@@ -1,16 +1,13 @@
 import os
+import pathlib
 import time
 
 import nltk
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from jiwer import wer
 import wandb
 from torch import optim
 from torch.utils.data import DataLoader
-from torch.utils.data.dataset import random_split
 from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset
@@ -18,7 +15,6 @@ from lyre.model import DemucsWav2Vec
 
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("cpu")
-torch.cuda.empty_cache()
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -26,9 +22,11 @@ def accuracy(predicted_batch, ground_truth_batch):
     acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
     return acum
 
+
 def correct_sentence(input_text):
     sentences = nltk.sent_tokenize(input_text)
     return (' '.join([s.replace(s[0], s[0].capitalize(), 1) for s in sentences]))
+
 
 # def decode(id2letter, logits):
 #     predicted_ids = torch.argmax(logits, dim=-1)
@@ -47,6 +45,7 @@ def convert_id_to_string(tokenizer, predicted_ids):
             predicted_string += token
 
     return ' '.join(predicted_string.split())
+
 
 def train_single_epoch(data: DataLoader, model, optimizer, criterion):
     model.train()
@@ -122,16 +121,16 @@ def test_model(test_data, model, criterion):
     return test_loss, test_acc
 
 
-
 if __name__ == "__main__":
     from dotenv import load_dotenv
+
     load_dotenv()
 
     config_defaults = {
         'audio_length': 10 * 44100,
         'stride': None,
         'epochs': 5,
-        'batch_size': 128,
+        'batch_size': 16,
         'learning_rate': 1e-3,
         'weight_decay': 0.0001,
         'optimizer': 'adam',
@@ -146,15 +145,32 @@ if __name__ == "__main__":
     config = wandb.config
     # wandb.
     # Load the dataset
-    if not os.path.isdir("../data"):
-        raise RuntimeError("Are you in the root folder")
-    dataset = DaliDataset("../data", config.audio_length, stride=config.stride)
 
-    # Split train and val datasets
-    val_len = int(len(dataset) * 0.10)
-    test_len = int(len(dataset) * 0.10)
-    test_dataset, valid_dataset, train_dataset = \
-        random_split(dataset, [test_len, val_len, len(dataset) - val_len - test_len])
+    import DALI as dali_code
+
+    dali_data_path = pathlib.Path('../data/dali').resolve(strict=True)
+    dali_audio_path = pathlib.Path('../data/audio').resolve(strict=True)
+    dali_gt_file = pathlib.Path('../data/gt_v1.0_22_11_18.gz').resolve(strict=True)
+    blacklist_file = pathlib.Path('../data/blacklist')
+    if blacklist_file.exists():
+        with open(blacklist_file) as f:
+            blacklist = f.read().splitlines()
+    else:
+        blacklist = []
+
+    print("Loading DALI dataset...")
+    dali_data = dali_code.get_the_DALI_dataset(str(dali_data_path), gt_file=str(dali_gt_file), skip=blacklist, keep=[])
+
+    print("Preparing Datasets...")
+    test_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+                               stride=config.stride, ncc=(.94, None))
+    print(f"Test DaliDataset: {len(test_dataset)} chunks")
+    validation_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+                                     stride=config.stride, ncc=(.925, .94))
+    print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+    train_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+                                stride=config.stride, ncc=(.8, .925))
+    print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
 
@@ -165,9 +181,13 @@ if __name__ == "__main__":
         lyrics_ids = tokenizer(lyrics, return_tensors='pt', padding=True)['input_ids']
         return torch.stack(waveforms), lyrics_ids
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate)
-    val_loader = DataLoader(valid_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate)
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate)
+
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate,
+                              num_workers=4)
+    val_loader = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
+                            num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
+                             num_workers=4)
 
     # Load the model
     model = DemucsWav2Vec().to(device)
