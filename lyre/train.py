@@ -1,3 +1,4 @@
+import argparse
 import os
 import pathlib
 import time
@@ -125,33 +126,48 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
 
     load_dotenv()
+    parser = argparse.ArgumentParser(prog="train")
+    parser.add_argument("dali_data_path")
+    parser.add_argument("dali_audio_path")
+    parser.add_argument("--dali_gt_file")
+    parser.add_argument("--blacklist_file")
+    parser.add_argument("--audio-length", type=int, default=10 * 44100)
+    parser.add_argument("--stride")
+    parser.add_argument("--epochs", type=int, default=5)
+    parser.add_argument("--batch", type=int, default=16)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--optimizer", choices=["adam", "sgd"])
+    parser.add_argument("--dropout", type=float, default=0.5)
 
-    config_defaults = {
-        'audio_length': 10 * 44100,
-        'stride': None,
-        'epochs': 5,
-        'batch_size': 16,
-        'learning_rate': 1e-3,
-        'weight_decay': 0.0001,
-        'optimizer': 'adam',
-        'dropout': 0.5,
+    namespace = parser.parse_args()
+
+    config = {
+        'audio_length': namespace.audio_length,
+        'stride': namespace.stride,
+        'epochs': namespace.epochs,
+        'batch_size': namespace.batch,
+        'learning_rate': namespace.lr,
+        'weight_decay': namespace.weight_decay,
+        'optimizer': namespace.optimizer,
+        'dropout': namespace.dropout,
     }
 
-    wandb.login(key=os.environ['WANDB_KEY'])
+    if 'WANDB_KEY' in os.environ:
+        wandb.login(key=os.environ['WANDB_KEY'])
+        os.environ["WANDB_SILENT"] = "true"
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
-               config=config_defaults)
-    config = wandb.config
-    # wandb.
+               config=config)
     # Load the dataset
 
     import DALI as dali_code
 
-    dali_data_path = pathlib.Path('../data/dali').resolve(strict=True)
-    dali_audio_path = pathlib.Path('../data/audio').resolve(strict=True)
-    dali_gt_file = pathlib.Path('../data/gt_v1.0_22_11_18.gz').resolve(strict=True)
-    blacklist_file = pathlib.Path('../data/blacklist')
+    dali_data_path = pathlib.Path(namespace.dali_data_path).resolve(strict=True)
+    dali_audio_path = pathlib.Path(namespace.dali_audio_path).resolve(strict=True)
+    dali_gt_file = pathlib.Path(namespace.dali_gt_file or '').resolve()
+    blacklist_file = pathlib.Path(namespace.blacklist_file or '')
     if blacklist_file.exists():
         with open(blacklist_file) as f:
             blacklist = f.read().splitlines()
