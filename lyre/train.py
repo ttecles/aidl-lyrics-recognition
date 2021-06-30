@@ -55,14 +55,17 @@ def train_single_epoch(data: DataLoader, model, optimizer, criterion):
         waveform = waveform.to(device)
         optimizer.zero_grad()
         output = model(waveform)
-        loss = criterion(output, lyrics)
+        batch, input_lengths, classes = output.size()
+        _, target_lengths = lyrics.size()
+        output = output.permute(1, 0, 2)
+        loss = criterion(output, lyrics,
+                         input_lengths=torch.full(size=(batch,), fill_value=input_lengths, dtype=torch.long),
+                         target_lengths=torch.full(size=(batch,), fill_value=target_lengths, dtype=torch.long))
         train_losses.append(float(loss))
 
         loss.backward()
         optimizer.step()
-
         wandb.log({"batch loss": loss.item()})
-
     return train_losses
 
 
@@ -71,16 +74,21 @@ def eval_single_epoch(data: DataLoader, model, criterion):
 
     val_losses = []
     with torch.no_grad():
-        for batch, (waveform, lyrics) in data:
+        for waveform, lyrics in data:
             output = model(waveform)
-            loss = criterion(output, lyrics)
+            batch, input_lengths, classes = output.size()
+            _, target_lengths = lyrics.size()
+            loss = criterion(output, lyrics,
+                             input_lengths=torch.full(size=(batch,), fill_value=input_lengths, dtype=torch.long),
+                             target_lengths=torch.full(size=(batch,), fill_value=target_lengths, dtype=torch.long)
+                             )
 
             val_losses.append(float(loss))
     return val_losses
 
 
 # Training
-def train_model(train_data, val_data, model, optimizer, criterion, epochs):
+def train_model(train_data, val_data, model, optimizer, criterion, epochs, vocab_size):
     losses = {'train': [], 'valid': []}
     for epoch in range(epochs):
         start_time = time.time()
@@ -140,6 +148,8 @@ if __name__ == "__main__":
     parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
     parser.add_argument("--dropout", type=float, default=0.5)
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--workers", type=int, default=0)
+
 
     namespace = parser.parse_args()
 
@@ -204,11 +214,11 @@ if __name__ == "__main__":
 
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate,
-                              num_workers=4)
+                              num_workers=namespace.workers)
     val_loader = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
-                            num_workers=4)
+                            num_workers=namespace.workers)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
-                             num_workers=4)
+                             num_workers=namespace.workers)
 
     # Load the model
     model = DemucsWav2Vec().to(device)
@@ -227,7 +237,8 @@ if __name__ == "__main__":
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
-    train_model(train_loader, val_loader, model, optimizer, criterion, config.epochs)
+    train_model(train_data=train_loader, val_data=val_loader, model=model, optimizer=optimizer, criterion=criterion,
+                epochs=config.epochs, vocab_size=tokenizer.vocab_size)
 
     print("Training finished")
 
