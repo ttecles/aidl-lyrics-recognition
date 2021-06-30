@@ -122,7 +122,7 @@ def _process_file(entry, samplerate, length, stride):
                 if text_notes and (match := re.search("\s?".join(text_notes), lyric)):
                     text = match.group(0)
                 else:
-                    text = ""
+                    text = "<pad>"
             except:
                 print(text_notes)
             chunk = Chunk(
