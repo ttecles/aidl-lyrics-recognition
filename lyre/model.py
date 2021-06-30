@@ -30,8 +30,8 @@ class DemucsWav2Vec(nn.Module):
         output_voice_mono_sr = self.resample(output_voice_mono)
 
         # Wav2Vec processor function:
-        input_values = (output_voice_mono_sr - output_voice_mono_sr.mean(1)) / torch.sqrt(
-            output_voice_mono_sr.var(1) + 1e-5)
+        input_values = (output_voice_mono_sr - output_voice_mono_sr.mean(1, keepdim=True)) / torch.sqrt(
+            output_voice_mono_sr.var(1, keepdim=True) + 1e-5)
 
         # Wav2Vec:
         logits = self.wav2vec(input_values).logits

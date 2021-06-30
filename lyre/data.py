@@ -144,7 +144,7 @@ class DaliDataset(Dataset):
 
     def __init__(self, dali_data, dali_audio_path, gt_file=None, blacklist=None, length=None, stride=None,
                  normalize=True, samplerate=44100, ncc: t.Tuple[t.Optional[float], t.Optional[float]] = None,
-                 workers=None):
+                 workers=0):
         """
 
         Args:

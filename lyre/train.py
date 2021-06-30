@@ -3,6 +3,7 @@ import os
 import pathlib
 import time
 
+import DALI as dali_code
 import nltk
 import numpy as np
 import torch
@@ -14,8 +15,7 @@ from transformers import AutoTokenizer
 from lyre.data import DaliDataset
 from lyre.model import DemucsWav2Vec
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -127,18 +127,19 @@ if __name__ == "__main__":
 
     load_dotenv()
     parser = argparse.ArgumentParser(prog="train")
-    parser.add_argument("dali_data_path")
-    parser.add_argument("dali_audio_path")
-    parser.add_argument("--dali_gt_file")
-    parser.add_argument("--blacklist_file")
+    parser.add_argument("DALI_DATA_PATH", type=pathlib.Path)
+    parser.add_argument("DALI_AUDIO_PATH", type=pathlib.Path)
+    parser.add_argument("--dali-gt-file", type=pathlib.Path)
+    parser.add_argument("--blacklist-file", type=pathlib.Path)
     parser.add_argument("--audio-length", type=int, default=10 * 44100)
     parser.add_argument("--stride")
     parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--batch", type=int, default=16)
+    parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--optimizer", choices=["adam", "sgd"])
+    parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
     parser.add_argument("--dropout", type=float, default=0.5)
+    parser.add_argument("--cpu", action="store_true")
 
     namespace = parser.parse_args()
 
@@ -160,31 +161,35 @@ if __name__ == "__main__":
 
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
                config=config)
+    config = wandb.config
     # Load the dataset
 
-    import DALI as dali_code
-
-    dali_data_path = pathlib.Path(namespace.dali_data_path).resolve(strict=True)
-    dali_audio_path = pathlib.Path(namespace.dali_audio_path).resolve(strict=True)
-    dali_gt_file = pathlib.Path(namespace.dali_gt_file or '').resolve()
-    blacklist_file = pathlib.Path(namespace.blacklist_file or '')
-    if blacklist_file.exists():
-        with open(blacklist_file) as f:
+    if namespace.blacklist_file:
+        with open(namespace.blacklist_file) as f:
             blacklist = f.read().splitlines()
     else:
         blacklist = []
 
+    if namespace.cpu:
+        device = torch.device("cpu")
+
     print("Loading DALI dataset...")
-    dali_data = dali_code.get_the_DALI_dataset(str(dali_data_path), gt_file=str(dali_gt_file), skip=blacklist, keep=[])
+    dali_data = dali_code.get_the_DALI_dataset(str(namespace.DALI_DATA_PATH.resolve(strict=True)),
+                                               gt_file=str(namespace.dali_gt_file.resolve(strict=True)),
+                                               skip=blacklist,
+                                               keep=[])
 
     print("Preparing Datasets...")
-    test_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+    test_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
+                               length=config.audio_length,
                                stride=config.stride, ncc=(.94, None))
     print(f"Test DaliDataset: {len(test_dataset)} chunks")
-    validation_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+    validation_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
+                                     length=config.audio_length,
                                      stride=config.stride, ncc=(.925, .94))
     print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
-    train_dataset = DaliDataset(dali_data, dali_audio_path=dali_audio_path, length=config.audio_length,
+    train_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
+                                length=config.audio_length,
                                 stride=config.stride, ncc=(.8, .925))
     print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
