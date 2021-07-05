@@ -4,7 +4,6 @@ import pathlib
 import time
 
 import DALI as dali_code
-import nltk
 import numpy as np
 import torch
 import wandb
