@@ -127,7 +127,7 @@ if __name__ == "__main__":
     parser.add_argument("DALI_AUDIO_PATH", type=pathlib.Path)
     parser.add_argument("--dali-gt-file", type=pathlib.Path)
     parser.add_argument("--blacklist-file", type=pathlib.Path)
-    parser.add_argument("--audio-length", type=int, default=10 * 44100)
+    parser.add_argument("--audio-length", type=int, default=10)
     parser.add_argument("--stride")
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch", type=int, default=8)

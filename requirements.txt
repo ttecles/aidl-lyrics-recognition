@@ -6,3 +6,4 @@ wandb
 demucs
 transformers
 jiwer
+python-dotenv

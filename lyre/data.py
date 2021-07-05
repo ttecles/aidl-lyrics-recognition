@@ -152,7 +152,7 @@ class DaliDataset(Dataset):
             dali_data: folder containing dali data or the loaded dali dataset
             dali_audio_path: path to the dali audio files
             gt_file: Dali's Ground thruth file
-            length: length in samples of the chunks
+            length: length in seconds of the chunks
             stride: stride applied on chunks
             normalize: normalize chunk audio
             samplerate: output sample rate
@@ -176,7 +176,7 @@ class DaliDataset(Dataset):
         self.gt_file = gt_file
 
         self.blacklist = blacklist or []
-        self.length = length
+        self.length = int(length * samplerate)
         self.stride = stride or length
         self.normalize = normalize
         self.samplerate = samplerate
