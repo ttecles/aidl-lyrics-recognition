@@ -119,7 +119,8 @@ def _process_file(entry, samplerate, length, stride):
 
         if not skip_chunk:
             try:
-                if text_notes and (match := re.search("\s?".join(text_notes), lyric)):
+                match = re.search("\s?".join(text_notes), lyric)
+                if text_notes and match:
                     text = match.group(0)
                 else:
                     text = "<pad>"
