@@ -1,5 +1,6 @@
 # Lyrics Recognition using Deep Learning Techniques
 
+
 Final project for the [UPC Postgraduate Course Artificial Intelligence with Deep Learning](https://www.talent.upc.edu/ing/estudis/formacio/curs/310400/postgraduate-course-artificial-intelligence-deep-learning/), edition Spring 2021
 
 Team: [Anne-Kristin Fischer](https://www.linkedin.com/in/anne-kristin-fischer-2ba9a158/), [Joan Prat Rigol](https://www.linkedin.com/in/joan-prat-rigol-290b7341/), [Eduard Rosés Gibert](https://www.linkedin.com/in/eduard-ros%C3%A9s-gibert-b87b9984/), [Marina Rosés Gibert](https://www.linkedin.com/in/marina-ros%C3%A9s-gibert-14057a195/)
