@@ -23,17 +23,6 @@ def accuracy(predicted_batch, ground_truth_batch):
     acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
     return acum
 
-
-def correct_sentence(input_text):
-    sentences = nltk.sent_tokenize(input_text)
-    return (' '.join([s.replace(s[0], s[0].capitalize(), 1) for s in sentences]))
-
-
-# def decode(id2letter, logits):
-#     predicted_ids = torch.argmax(logits, dim=-1)
-#     transcription = wav2vec_tokenizer.decode(predicted_ids[0])
-#     return correct_sentence(transcription.lower())
-
 def convert_id_to_string(tokenizer, predicted_ids):
     predicted_tokens = tokenizer.convert_ids_to_tokens(predicted_ids.squeeze())
     predicted_string = ''
