@@ -141,18 +141,22 @@ def _process_file(entry, samplerate, length, stride):
     return chunk_map
 
 
+DEFAULT_SAMPLE_RATE = 44100
+
+
 class DaliDataset(Dataset):
 
     def __init__(self, dali_data, dali_audio_path, gt_file=None, blacklist=None, length=None, stride=None,
-                 normalize=True, samplerate=44100, ncc: t.Tuple[t.Optional[float], t.Optional[float]] = None,
+                 normalize=True, samplerate=DEFAULT_SAMPLE_RATE,
+                 ncc: t.Tuple[t.Optional[float], t.Optional[float]] = None,
                  workers=0):
         """
 
         Args:
             dali_data: folder containing dali data or the loaded dali dataset
             dali_audio_path: path to the dali audio files
-            gt_file: Dali's Ground thruth file
-            length: length in seconds of the chunks
+            gt_file: Dali's Ground truth file
+            length: chunk's samples length
             stride: stride applied on chunks
             normalize: normalize chunk audio
             samplerate: output sample rate
@@ -176,8 +180,8 @@ class DaliDataset(Dataset):
         self.gt_file = gt_file
 
         self.blacklist = blacklist or []
-        self.length = int(length * samplerate)
-        self.stride = stride or length
+        self.length = length
+        self.stride = stride or self.length
         self.normalize = normalize
         self.samplerate = samplerate
         self.chunk_map: t.List[Chunk] = []

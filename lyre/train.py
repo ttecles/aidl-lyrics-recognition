@@ -11,7 +11,7 @@ from torch import optim
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from lyre.data import DaliDataset
+from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -21,6 +21,7 @@ def accuracy(predicted_batch, ground_truth_batch):
     pred = predicted_batch.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
     acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
     return acum
+
 
 def convert_id_to_string(tokenizer, predicted_ids):
     predicted_tokens = tokenizer.convert_ids_to_tokens(predicted_ids.squeeze())
@@ -128,7 +129,7 @@ if __name__ == "__main__":
     parser.add_argument("--dali-gt-file", type=pathlib.Path)
     parser.add_argument("--blacklist-file", type=pathlib.Path)
     parser.add_argument("--audio-length", type=int, default=10)
-    parser.add_argument("--stride")
+    parser.add_argument("--stride", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -137,7 +138,6 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.5)
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--workers", type=int, default=0)
-
 
     namespace = parser.parse_args()
 
@@ -178,18 +178,21 @@ if __name__ == "__main__":
                                                skip=blacklist,
                                                keep=[])
 
+    audio_length = namespace.audio_length * DEFAULT_SAMPLE_RATE
+    if namespace.stride:
+        stride = namespace.stride * DEFAULT_SAMPLE_RATE
+    else:
+        stride = namespace.stride
+
     print("Preparing Datasets...")
     test_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                               length=config.audio_length,
-                               stride=config.stride, ncc=(.94, None), workers=namespace.workers)
+                               length=audio_length, stride=stride, ncc=(.94, None), workers=namespace.workers)
     print(f"Test DaliDataset: {len(test_dataset)} chunks")
     validation_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                                     length=config.audio_length,
-                                     stride=config.stride, ncc=(.925, .94), workers=namespace.workers)
+                                     length=audio_length, stride=stride, ncc=(.925, .94), workers=namespace.workers)
     print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
     train_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                                length=config.audio_length,
-                                stride=config.stride, ncc=(.8, .925), workers=namespace.workers)
+                                length=audio_length, stride=stride, ncc=(.8, .925), workers=namespace.workers)
     print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
