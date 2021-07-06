@@ -77,7 +77,7 @@ def eval_single_epoch(data: DataLoader, model, criterion):
 
 
 # Training
-def train_model(train_data, val_data, model, optimizer, criterion, epochs, vocab_size):
+def train_model(train_data, val_data, model, optimizer, criterion, epochs, scheduler=None, save_folder=None):
     losses = {'train': [], 'valid': []}
     for epoch in range(epochs):
         start_time = time.time()
@@ -99,6 +99,10 @@ def train_model(train_data, val_data, model, optimizer, criterion, epochs, vocab
         print(f"EPOCH: {epoch + 1},  | time in {mins} minutes, {secs} seconds")
         # print progress
         print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}', flush=True)
+        if scheduler:
+            scheduler.step()
+        if save_folder:
+            save_model(model, optimizer, epoch, losses['train'][-1], save_folder)
 
 
 def test_model(test_data, model, criterion):
@@ -119,7 +123,19 @@ def test_model(test_data, model, criterion):
     return test_loss, test_acc
 
 
-if __name__ == "__main__":
+def save_model(model, optimizer, epoch, loss, folder):
+    print(f"Saving checkpoint to {folder}...")
+    # We can save everything we will need later in the checkpoint.
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.cpu().state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss
+    }, folder)
+
+
+def main():
+    global device
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -138,6 +154,8 @@ if __name__ == "__main__":
     parser.add_argument("--dropout", type=float, default=0.5)
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--workers", type=int, default=0)
+    parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder")
+    parser.add_argument("--load-model", action="store_true", help="loads the model before training")
 
     namespace = parser.parse_args()
 
@@ -156,12 +174,10 @@ if __name__ == "__main__":
     if 'WANDB_KEY' in os.environ:
         wandb.login(key=os.environ['WANDB_KEY'])
         os.environ["WANDB_SILENT"] = "true"
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
                config=config)
     config = wandb.config
-    # Load the dataset
 
     if namespace.blacklist_file:
         with open(namespace.blacklist_file) as f:
@@ -214,8 +230,12 @@ if __name__ == "__main__":
 
     # Load the model
     model = DemucsWav2Vec().to(device)
+    if namespace.load_model:
+        checkpoint = torch.load(namespace.model_folder)
+        model.load_state_dict(checkpoint["model_state_dict"])
 
     wandb.watch(model)
+
     criterion = torch.nn.CTCLoss().to(device)
 
     # Setup optimizer and LR scheduler
@@ -227,25 +247,19 @@ if __name__ == "__main__":
     else:
         raise RuntimeError("No Optimizer specified")
 
+    if namespace.load_model:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     print("Start Training with device", str(device))
-
     train_model(train_data=train_loader, val_data=val_loader, model=model, optimizer=optimizer, criterion=criterion,
-                epochs=config.epochs, vocab_size=tokenizer.vocab_size)
-
+                epochs=config.epochs, scheduler=scheduler, save_folder=namespace.model_folder)
     print("Training finished")
 
     test_loss, test_acc = test_model(test_loader, model, criterion)
     print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
     wandb.log({"test_loss": test_loss, "test_acc": test_acc})
 
-    # # Now save the artifacts of the training
-    # savedir = "app/state_dict.pt"
-    # print(f"Saving checkpoint to {savedir}...")
-    # # We can save everything we will need later in the checkpoint.
-    # checkpoint = {
-    #     "model_state_dict": model.cpu().state_dict(),
-    #     "optimizer_state_dict": optimizer.state_dict(),
-    # }
-    # torch.save(checkpoint, savedir)
+if __name__ == "__main__":
+    main()
