@@ -150,6 +150,7 @@ if __name__ == "__main__":
         'weight_decay': namespace.weight_decay,
         'optimizer': namespace.optimizer,
         'dropout': namespace.dropout,
+        'workers': namespace.workers
     }
 
     if 'WANDB_KEY' in os.environ:
@@ -180,15 +181,15 @@ if __name__ == "__main__":
     print("Preparing Datasets...")
     test_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
                                length=config.audio_length,
-                               stride=config.stride, ncc=(.94, None))
+                               stride=config.stride, ncc=(.94, None), workers=namespace.workers)
     print(f"Test DaliDataset: {len(test_dataset)} chunks")
     validation_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
                                      length=config.audio_length,
-                                     stride=config.stride, ncc=(.925, .94))
+                                     stride=config.stride, ncc=(.925, .94), workers=namespace.workers)
     print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
     train_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
                                 length=config.audio_length,
-                                stride=config.stride, ncc=(.8, .925))
+                                stride=config.stride, ncc=(.8, .925), workers=namespace.workers)
     print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
@@ -224,6 +225,8 @@ if __name__ == "__main__":
         raise RuntimeError("No Optimizer specified")
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+
+    print("Start Training with device", str(device))
 
     train_model(train_data=train_loader, val_data=val_loader, model=model, optimizer=optimizer, criterion=criterion,
                 epochs=config.epochs, vocab_size=tokenizer.vocab_size)

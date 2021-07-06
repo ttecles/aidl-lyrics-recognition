@@ -181,6 +181,7 @@ class DaliDataset(Dataset):
         self.normalize = normalize
         self.samplerate = samplerate
         self.chunk_map: t.List[Chunk] = []
+        self.workers = workers
         if ncc is not None:
             self.min_ncc = ncc[0] or 0
             self.max_ncc = ncc[1] or 1
@@ -206,14 +207,27 @@ class DaliDataset(Dataset):
                 self.dali_data_subset_ident.append(iden)
 
         print("Generate Chunks")
-        with Pool(max(multiprocessing.cpu_count() - 2, 1)) as p:
-            result = p.map(
-                partial(_process_file, samplerate=self.samplerate, length=self.length, stride=self.stride),
-                [self.dali_data[i] for i in self.dali_data_subset_ident])
 
-        for chunks in result:
-            if chunks:
-                self.chunk_map.extend(chunks)
+        if self.workers == 0 or self.workers is None:
+            workers = max(multiprocessing.cpu_count() - 1, 1)
+        else:
+            workers = self.workers
+
+        if workers > 1:
+            with Pool(workers) as p:
+                result = p.map(
+                    partial(_process_file, samplerate=self.samplerate, length=self.length, stride=self.stride),
+                    [self.dali_data[i] for i in self.dali_data_subset_ident])
+
+            for chunks in result:
+                if chunks:
+                    self.chunk_map.extend(chunks)
+        else:
+            for i in self.dali_data_subset_ident:
+                chunks = _process_file(self.dali_data[i], samplerate=self.samplerate, length=self.length,
+                                       stride=self.stride)
+                if chunks:
+                    self.chunk_map.extend(chunks)
 
     def __len__(self):
         return len(self.chunk_map)
