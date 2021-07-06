@@ -245,7 +245,8 @@ def main():
             loss = loss / gradient_accumulation_steps
             losses1.append(float(loss))
 
-            accelerator.backward(loss)
+            # accelerator.backward(loss)
+            loss.backward()
             if step % gradient_accumulation_steps == 0:
                 optimizer.step()
                 if scheduler:
