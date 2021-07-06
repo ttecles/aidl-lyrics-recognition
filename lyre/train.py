@@ -6,15 +6,20 @@ import time
 import DALI as dali_code
 import numpy as np
 import torch
+import torch.nn.functional as F
 import wandb
 from torch import optim
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-
+from accelerate import Accelerator
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+MAX_GPU_BATCH_SIZE = 16
+EVAL_BATCH_SIZE = 32
+
+
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -37,28 +42,7 @@ def convert_id_to_string(tokenizer, predicted_ids):
     return ' '.join(predicted_string.split())
 
 
-def train_single_epoch(data: DataLoader, model, optimizer, criterion):
-    model.train()
-    train_losses = []
-    for waveform, lyrics in data:
-        waveform = waveform.to(device)
-        optimizer.zero_grad()
-        output = model(waveform)
-        batch, input_lengths, classes = output.size()
-        _, target_lengths = lyrics.size()
-        output = output.permute(1, 0, 2)
-        loss = criterion(output, lyrics,
-                         input_lengths=torch.full(size=(batch,), fill_value=input_lengths, dtype=torch.long),
-                         target_lengths=torch.full(size=(batch,), fill_value=target_lengths, dtype=torch.long))
-        train_losses.append(float(loss))
-
-        loss.backward()
-        optimizer.step()
-        wandb.log({"batch loss": loss.item()})
-    return train_losses
-
-
-def eval_single_epoch(data: DataLoader, model, criterion):
+def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
     model.eval()
 
     val_losses = []
@@ -77,32 +61,6 @@ def eval_single_epoch(data: DataLoader, model, criterion):
 
 
 # Training
-def train_model(train_data, val_data, model, optimizer, criterion, epochs, scheduler=None, save_folder=None):
-    losses = {'train': [], 'valid': []}
-    for epoch in range(epochs):
-        start_time = time.time()
-        train_losses = train_single_epoch(train_data, model, optimizer, criterion)
-        val_losses = eval_single_epoch(val_data, model, criterion)
-
-        # Loss average
-        average_train_loss = np.mean(train_losses)
-        average_valid_loss = np.mean(val_losses)
-        losses['train'].append(average_train_loss)
-        losses['valid'].append(average_valid_loss)
-
-        wandb.log({"train_loss": average_train_loss})
-        wandb.log({"valid_loss": average_valid_loss})
-
-        secs = int(time.time() - start_time)
-        mins = secs / 60
-        secs = secs % 60
-        print(f"EPOCH: {epoch + 1},  | time in {mins} minutes, {secs} seconds")
-        # print progress
-        print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}', flush=True)
-        if scheduler:
-            scheduler.step()
-        if save_folder:
-            save_model(model, optimizer, epoch, losses['train'][-1], save_folder)
 
 
 def test_model(test_data, model, criterion):
@@ -148,71 +106,81 @@ def main():
     parser.add_argument("--stride", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
-    parser.add_argument("--dropout", type=float, default=0.5)
-    parser.add_argument("--cpu", action="store_true")
+    # parser.add_argument("--dropout", type=float, default=0.5)
+    parser.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
+    parser.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
     parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder")
     parser.add_argument("--load-model", action="store_true", help="loads the model before training")
+    parser.add_argument("--freeze-demucs", action="store_true", help="does not train demucs")
 
-    namespace = parser.parse_args()
+    args = parser.parse_args()
+
+    batch_size = args.batch
+    # If the batch size is too big we use gradient accumulation
+    gradient_accumulation_steps = 1
+    if args.batch > MAX_GPU_BATCH_SIZE:
+        gradient_accumulation_steps = args.batch // MAX_GPU_BATCH_SIZE
+        batch_size = MAX_GPU_BATCH_SIZE
 
     config = {
-        'audio_length': namespace.audio_length,
-        'stride': namespace.stride,
-        'epochs': namespace.epochs,
-        'batch_size': namespace.batch,
-        'learning_rate': namespace.lr,
-        'weight_decay': namespace.weight_decay,
-        'optimizer': namespace.optimizer,
-        'dropout': namespace.dropout,
-        'workers': namespace.workers
+        'audio_length': args.audio_length,
+        'stride': args.stride,
+        'epochs': args.epochs,
+        'batch_size': args.batch,
+        'learning_rate': args.lr,
+        'weight_decay': args.weight_decay,
+        'optimizer': args.optimizer,
+        # 'dropout': args.dropout,
+        'workers': args.workers,
+        'freeze_demucs': args.freeze_demucs
     }
 
+    # WANDB configuration
     if 'WANDB_KEY' in os.environ:
         wandb.login(key=os.environ['WANDB_KEY'])
         os.environ["WANDB_SILENT"] = "true"
-
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
                config=config)
     config = wandb.config
 
-    if namespace.blacklist_file:
-        with open(namespace.blacklist_file) as f:
+    # User input validation and transformation
+    if args.blacklist_file:
+        with open(args.blacklist_file) as f:
             blacklist = f.read().splitlines()
     else:
         blacklist = []
 
-    if namespace.cpu:
+    if args.cpu:
         device = torch.device("cpu")
 
+    audio_length = args.audio_length * DEFAULT_SAMPLE_RATE
+    if args.stride:
+        stride = args.stride * DEFAULT_SAMPLE_RATE
+    else:
+        stride = args.stride
+
     print("Loading DALI dataset...")
-    dali_data = dali_code.get_the_DALI_dataset(str(namespace.DALI_DATA_PATH.resolve(strict=True)),
-                                               gt_file=str(namespace.dali_gt_file.resolve(strict=True)),
+    dali_data = dali_code.get_the_DALI_dataset(str(args.DALI_DATA_PATH.resolve(strict=True)),
+                                               gt_file=str(args.dali_gt_file.resolve(strict=True)),
                                                skip=blacklist,
                                                keep=[])
 
-    audio_length = namespace.audio_length * DEFAULT_SAMPLE_RATE
-    if namespace.stride:
-        stride = namespace.stride * DEFAULT_SAMPLE_RATE
-    else:
-        stride = namespace.stride
-
     print("Preparing Datasets...")
-    test_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                               length=audio_length, stride=stride, ncc=(.94, None), workers=namespace.workers)
+    test_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
+                               length=audio_length, stride=stride, ncc=(.94, None), workers=args.workers)
     print(f"Test DaliDataset: {len(test_dataset)} chunks")
-    validation_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                                     length=audio_length, stride=stride, ncc=(.925, .94), workers=namespace.workers)
+    validation_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
+                                     length=audio_length, stride=stride, ncc=(.925, .94), workers=args.workers)
     print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
-    train_dataset = DaliDataset(dali_data, dali_audio_path=namespace.DALI_AUDIO_PATH.resolve(strict=True),
-                                length=audio_length, stride=stride, ncc=(.8, .925), workers=namespace.workers)
+    train_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
+                                length=audio_length, stride=stride, ncc=(.8, .925), workers=args.workers)
     print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
-
 
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
@@ -220,23 +188,21 @@ def main():
         lyrics_ids = tokenizer(lyrics, return_tensors='pt', padding=True)['input_ids']
         return torch.stack(waveforms), lyrics_ids
 
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate,
+                              num_workers=args.workers)
+    val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
+                            num_workers=args.workers)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
+                             num_workers=args.workers)
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=collate,
-                              num_workers=namespace.workers)
-    val_loader = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
-                            num_workers=namespace.workers)
-    test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=collate,
-                             num_workers=namespace.workers)
-
+    accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
     # Load the model
-    model = DemucsWav2Vec().to(device)
-    if namespace.load_model:
-        checkpoint = torch.load(namespace.model_folder)
+    model = DemucsWav2Vec()
+    if args.load_model:
+        checkpoint = torch.load(args.model_folder)
         model.load_state_dict(checkpoint["model_state_dict"])
 
     wandb.watch(model)
-
-    criterion = torch.nn.CTCLoss().to(device)
 
     # Setup optimizer and LR scheduler
     # Define the optimizer
@@ -247,19 +213,86 @@ def main():
     else:
         raise RuntimeError("No Optimizer specified")
 
-    if namespace.load_model:
+    if args.load_model:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
-    print("Start Training with device", str(device))
-    train_model(train_data=train_loader, val_data=val_loader, model=model, optimizer=optimizer, criterion=criterion,
-                epochs=config.epochs, scheduler=scheduler, save_folder=namespace.model_folder)
-    print("Training finished")
+    criterion = torch.nn.CTCLoss()
+
+    model, optimizer, train_loader, val_loader, test_loader, criterion = accelerator.prepare(
+        model, optimizer, train_loader, val_loader, test_loader, criterion
+    )
+
+    accelerator.print("Start Training with device", str(accelerator.device))
+    losses = {'train': [], 'valid': []}
+    for epoch in range(config.epochs):
+        start_time = time.time()
+        model.train()
+        losses1 = []
+        for step, batch in enumerate(train_loader):
+            waveform, lyrics = batch
+            waveform = waveform
+
+            output = model(waveform)
+            batch_size, input_lengths, classes = output.size()
+            _, target_lengths = lyrics.size()
+            output = output.permute(1, 0, 2)
+            loss = criterion(output, lyrics,
+                             input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
+                             target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
+                                                       dtype=torch.short))
+            loss = loss / gradient_accumulation_steps
+            losses1.append(float(loss))
+
+            accelerator.backward(loss)
+            if step % gradient_accumulation_steps == 0:
+                optimizer.step()
+                if scheduler:
+                    scheduler.step(loss, epoch=epoch)
+                optimizer.zero_grad()
+                wandb.log({"batch loss": loss.item()})
+        train_losses = losses1
+
+        model.eval()
+        val_losses = []
+
+        for waveform, lyrics in val_loader:
+            with torch.no_grad():
+                output = model(waveform)
+            batch_size, input_lengths, classes = output.size()
+            _, target_lengths = lyrics.size()
+            loss = F.ctc_loss(output, lyrics,
+                              input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
+                              target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
+                                                        dtype=torch.short)
+                              )
+            val_losses.append(float(loss))
+
+        # Loss average
+        average_train_loss = np.mean(train_losses)
+        average_valid_loss = np.mean(val_losses)
+        losses['train'].append(average_train_loss)
+        losses['valid'].append(average_valid_loss)
+
+        wandb.log({"train_loss": average_train_loss})
+        wandb.log({"valid_loss": average_valid_loss})
+
+        secs = int(time.time() - start_time)
+        mins = secs / 60
+        secs = secs % 60
+        accelerator.print(f"EPOCH: {epoch + 1},  | time in {mins} minutes, {secs} seconds")
+        # print progress
+        accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
+
+        if args.model_folder:
+            save_model(model, optimizer, epoch, losses['train'][-1], args.model_folder)
+    accelerator.print("Training finished")
 
     test_loss, test_acc = test_model(test_loader, model, criterion)
-    print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
+    accelerator.print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
     wandb.log({"test_loss": test_loss, "test_acc": test_acc})
+
 
 if __name__ == "__main__":
     main()

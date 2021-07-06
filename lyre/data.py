@@ -92,7 +92,7 @@ def _process_file(entry, samplerate, length, stride):
                     current_note = next(notes)
                     time_note_start, time_note_end = current_note["time"]
                     if time_note_start < 0 or time_note_end < 0:
-                        print(f"Negative notes in {entry.info['id']}")
+                        # print(f"Negative notes in {entry.info['id']}")
                         return []
                     note_start = time2sample(time_note_start, sample_rate=samplerate)
                     note_end = time2sample(time_note_end, sample_rate=samplerate)
@@ -135,7 +135,8 @@ def _process_file(entry, samplerate, length, stride):
                 text.upper(),
             )
             if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end:
-                print("Invalid Chunk: ", chunk)
+                # print("Invalid Chunk: ", chunk)
+                pass
             else:
                 chunk_map.append(chunk)
     return chunk_map
