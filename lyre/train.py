@@ -19,8 +19,6 @@ MAX_GPU_BATCH_SIZE = 16
 EVAL_BATCH_SIZE = 32
 
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def accuracy(predicted_batch, ground_truth_batch):
     pred = predicted_batch.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
@@ -93,7 +91,6 @@ def save_model(model, optimizer, epoch, loss, folder):
 
 
 def main():
-    global device
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -153,9 +150,6 @@ def main():
             blacklist = f.read().splitlines()
     else:
         blacklist = []
-
-    if args.cpu:
-        device = torch.device("cpu")
 
     audio_length = args.audio_length * DEFAULT_SAMPLE_RATE
     if args.stride:
@@ -245,8 +239,8 @@ def main():
             loss = loss / gradient_accumulation_steps
             losses1.append(float(loss))
 
-            # accelerator.backward(loss)
-            loss.backward()
+            accelerator.backward(loss)
+            # loss.backward()
             if step % gradient_accumulation_steps == 0:
                 optimizer.step()
                 if scheduler:

@@ -200,7 +200,7 @@ class DaliDataset(Dataset):
             print("Loading DALI data from ", self.dali_data_path)
             self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, self.gt_file, skip=self.blacklist)
 
-        print("Generating dataset information")
+        # print("Generating dataset information")
         files = list(self.dali_audio_path.glob("*.mp3"))
 
         for file in files:
@@ -211,7 +211,7 @@ class DaliDataset(Dataset):
                 self.dali_data[iden].info["audio"]["metadata"] = torchaudio.info(file.absolute())
                 self.dali_data_subset_ident.append(iden)
 
-        print("Generate Chunks")
+        # print("Generate Chunks")
 
         if self.workers == 0 or self.workers is None:
             workers = max(multiprocessing.cpu_count() - 1, 1)
