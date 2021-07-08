@@ -113,6 +113,7 @@ As alignment is done automatically in DALI and groundtruth is available only for
 
 ![image](https://drive.google.com/uc?export=view&id=17tIQ9EroDUCo4dG-1tF6OZDlSVmv5aii)
     _Figure 6: Suggested NCCt scores for train, validation and test_
+    
 where NCCt is a correlation score which indicates how accurate the automatic alignment is. Higher means better. The number of tracks refers to the whole data set, including as well songs in other languages for both the first and second version of the dataset.
 
 ![image](https://drive.google.com/uc?export=view&id=1tDukLCKRWCIfKMtsCoh-WGEUI7jFvv5V)    
