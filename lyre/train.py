@@ -19,7 +19,6 @@ MAX_GPU_BATCH_SIZE = 16
 EVAL_BATCH_SIZE = 32
 
 
-
 def accuracy(predicted_batch, ground_truth_batch):
     pred = predicted_batch.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
     acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
@@ -234,7 +233,7 @@ def main():
             waveform, lyrics = batch
             waveform = waveform
 
-            output = model(waveform)
+            output, voice = model(waveform)
             batch_size, input_lengths, classes = output.size()
             _, target_lengths = lyrics.size()
             output = output.permute(1, 0, 2)
@@ -260,15 +259,17 @@ def main():
 
         for waveform, lyrics in val_loader:
             with torch.no_grad():
-                output = model(waveform)
-            batch_size, input_lengths, classes = output.size()
-            _, target_lengths = lyrics.size()
-            loss = F.ctc_loss(output, lyrics,
-                              input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
-                              target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
-                                                        dtype=torch.short)
-                              )
-            val_losses.append(loss.item())
+                output, voice = model(waveform)
+                batch_size, input_lengths, classes = output.size()
+                _, target_lengths = lyrics.size()
+                output = output.permute(1, 0, 2)
+                loss = criterion(output, lyrics,
+                                 input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
+                                                          dtype=torch.short),
+                                 target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
+                                                           dtype=torch.short)
+                                 )
+                val_losses.append(loss.item())
 
         # Loss average
         average_train_loss = np.mean(train_losses)
