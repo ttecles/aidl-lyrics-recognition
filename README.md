@@ -48,7 +48,7 @@ Practical applications for music lyrics recognition such as the creation of kara
 ### 1.1 Motivation <a name="motivation"></a>
 Our decision for a lyrics recognition task with deep learning techniques is the attempt to combine several of our personal and professional interests. All team members have a more or less professional background in the music industry additionally to a particular interest in source separation tasks and natural language processing.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /><p >
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /><p >    
     _Figure 1: Our passion for music, language and deep learning combined_
 <p align="right"><a href="#toc">To top</a></p>
 
@@ -74,7 +74,7 @@ To reach our goals, we set up the following milestones:
 ## 2. Data Set <a name="dataset"></a>
 To train our model we opted for the [DALI data set](https://github.com/gabolsgabs/DALI), published in 2018. It is to this day the biggest data set in the field of singing voice research which aligns audio to notes and their lyrics along high quality standards. Access was granted to us for the first version, DALI v1, with 5358 songs in full duration and multiple languages. For more information please check as well [this article](https://transactions.ismir.net/articles/10.5334/tismir.30/), published by the International Society for Music Information Retrieval.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /> <a href="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv"><img src="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv" style="width: auto; max-width: 100%; height: 200px" title="dali_horizontal" /><p >
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /> <a href="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv"><img src="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv" style="width: auto; max-width: 100%; height: 200px" title="dali_horizontal" /><p >    
     _Figure 2: Alignment of notes and text in DALI data set based on triples of {time (start and duration), note, text}_
     _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, words and notes are interconnected vertically_
 <p align="right"><a href="#toc">To top</a></p>
@@ -92,7 +92,7 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
     
 <p align="right"><a href="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r"><img src="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r" style="width: auto; max-width: 100%; height: 250px" title="Demucs" /> <a href="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK"><img src="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK" style="width: auto; max-width: 100%; height: 250px" title="wav2vec" /><p > 
 
-![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)
+![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)    
     _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
  <p align="right"><a href="#toc">To top</a></p>
 
@@ -102,7 +102,7 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
 ### 4.2 Evaluation Metrics <a name="metrics"></a>
 For training and validation we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /><p >
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /><p >    
     _Figure 5: CTC loss: architecture and its calculation_
 <p align="right"><a href="#toc">To top</a></p>
 
@@ -111,7 +111,7 @@ For training and validation we opted for the CTC loss function (Connectionist Te
 Preprocessing the data set correctly for our purpose was proven to be one of the major obstacles we encountered. We focused on songs in English only, that is 3491 songs in full duration. Preprocessing included omitting special characters as well as negative time stamps and transforming the lyrics in upper case only. To make sure to obtain meaningful results after training and to avoid cut-off lyrics, we prepared chunks. For these chunks we discarded words split among multiple notes at the beginning and end of each chunk and we cut out silent passages without voice. To make data accessible for our model, the audio waveform needed to be resampled to a sample rate of 44100 Hz.
 As alignment is done automatically in DALI and groundtruth is available only for few audio samples, we followed the suggestions for train/validation/test split by the authors. That is:
 
-![image](https://drive.google.com/uc?export=view&id=17tIQ9EroDUCo4dG-1tF6OZDlSVmv5aii)
+![image](https://drive.google.com/uc?export=view&id=17tIQ9EroDUCo4dG-1tF6OZDlSVmv5aii)    
     _Figure 6: Suggested NCCt scores for train, validation and test_
     
 where NCCt is a correlation score which indicates how accurate the automatic alignment is. Higher means better. The number of tracks refers to the whole data set, including as well songs in other languages for both the first and second version of the dataset.
@@ -148,19 +148,35 @@ Further research could be done for:
 
 ## 11. References <a name="references"></a>
 https://towardsdatascience.com/wav2vec-2-0-a-framework-for-self-supervised-learning-of-speech-representations-7d3728688cae
+    
 https://ieeexplore.ieee.org/abstract/document/5179014
+
 https://www.isca-speech.org/archive/Interspeech_2019/pdfs/1318.pdf
+    
 https://ieeexplore.ieee.org/document/6682644?arnumber=6682644
+    
 https://www.researchgate.net/publication/42386897_Automatic_Recognition_of_Lyrics_in_Singing
+    
 https://europepmc.org/article/med/20095443
+    
 https://asmp-eurasipjournals.springeropen.com/articles/10.1155/2010/546047
+    
 https://arxiv.org/abs/2102.08575
+    
 https://github.com/facebookresearch/demucs
+    
 http://ismir2018.ircam.fr/doc/pdfs/35_Paper.pdf
+    
 https://wandb.ai/site
+    
 https://cloud.google.com/
+    
 https://ai.facebook.com/blog/wav2vec-20-learning-the-structure-of-speech-from-raw-audio/
+    
 https://colab.research.google.com/notebooks/intro.ipynb?hl=en
+    
 https://pytorch.org/docs/stable/torch.html
+    
 https://transactions.ismir.net/articles/10.5334/tismir.30/
+    
 https://distill.pub/2017/ctc/
