@@ -19,28 +19,28 @@ pip install -r requirements.txt
 ## Table of Contents <a name="toc"></a>
 1. [Introduction](#intro)
     1. [Motivation](#motivation)
-    2. [Project goals](#goals)
+    2. [Project Goals](#goals)
     3. [Milestones](#milestones)
-2. [Data set](#dataset)
+2. [Data Set](#dataset)
 3. [Working Environment](#working_env)
 4. [General Architecture](#architecture)
-    1. [Main hyperparameters](#main_hyperparameters)
-    2. [Evaluation metrics](#metrics)
+    1. [Main Hyperparameters](#main_hyperparameters)
+    2. [Evaluation Metrics](#metrics)
 5. [First Tests](#initial)
     1. [Preprocessing the data set](#dataset_preprocess)
     2. [Parameters](#parameters)
 6. [Results](#results)
-7. [Results improvement](#improving_results)
-8. [The Google Cloud instance](#gcinstance)
+7. [Results Improvement](#improving_results)
+8. [The Google Cloud Instance](#gcinstance)
 9. [Conclusions](#conclusions)
-10. [Next steps](#next_steps)
+10. [Next Steps](#next_steps)
 11. [References](#references)
 
 ## 1. Introduction <a name="intro"></a>
 To this day few research is done in music lyrics recognition which is still considered a complex task. For its approach two subtasks can be determined:
 
 1. The singing voice needs to be extracted from the song by means of source separation. What seems to be an easy task for the human brain, remains a brain teaser for digital signal processing because of the complexe mixture of signals.
-2. The second subtask aims to transcribe the obtained audio text of the singing voice into written text. This can be thought of as a speech recognition task. A lot of progress has been made for standard speech recognition tasks. Though, experiments with music made evident that the recognition of text of a singing voice is more complexe than pure speech recognition due to its increasing acoustical features.
+2. The second subtask aims to transcribe the obtained audio text of the singing voice into written text. This can be thought of as a speech recognition task. A lot of progress has been made for standard speech recognition tasks. Though, experiments with music made evident that the recognition of text of a singing voice is more complex than pure speech recognition due to its increasing acoustical features.
 
 Practical applications for music lyrics recognition such as the creation of karaoke versions or music information retrieval tasks motivate to tackle the aforementioned challenges.
 <p align="right"><a href="#toc">To top</a></p>
@@ -70,7 +70,7 @@ To reach our goals, we set up the following milestones:
 * Make suggestions for further investigation
 <p align="right"><a href="#toc">To top</a></p>
 
-## 2. Data set <a name="dataset"></a>
+## 2. Data Set <a name="dataset"></a>
 To train our model we opted for the [DALI data set](https://github.com/gabolsgabs/DALI), published in 2018. It is to this day the biggest data set in the field of singing voice research which aligns audio to notes and their lyrics along high quality standards. Access was granted to us for the first version, DALI v1, with 5358 songs in full duration and multiple languages. For more information please check as well [this article](https://transactions.ismir.net/articles/10.5334/tismir.30/), published by the International Society for Music Information Retrieval.
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /> <a href="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv"><img src="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv" style="width: auto; max-width: 100%; height: 200px" title="dali_horizontal" /><p >
@@ -118,17 +118,17 @@ where NCCt is a correlation score which indicates how accurate the automatic ali
 ## 6. Results <a name="results"></a>
 <p align="right"><a href="#toc">To top</a></p>
 
-## 7. Results improvement <a name="improving_results"></a>
+## 7. Results Improvement <a name="improving_results"></a>
 <p align="right"><a href="#toc">To top</a></p>
 
-## 8. Google Cloud instance <a name="gcinstance"></a>
+## 8. Google Cloud Instance <a name="gcinstance"></a>
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 9. Conclusions <a name="conclusions"></a>
 As already mentioned before recognition tasks in music remain complex. Additionally, today as then the community laments a lack of well structured, aligned, large data sets for music information retrieval tasks. In consequence we needed to address the challenge to find an appropriate dataset and model architecture. Few literature for reference was available. We believe that our suggestion is a powerful solution for lyrics recognition. Though, its high computational cost is evident and implementation remains to be optimized.
 <p align="right"><a href="#toc">To top</a></p>
 
-## 10. Next steps <a name="next_steps"></a>
+## 10. Next Steps <a name="next_steps"></a>
 Further research could be done for:
 * melody extraction
 * chords transcription
