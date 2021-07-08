@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchaudio
+import torchaudio as ta
 
 from demucs.pretrained import load_pretrained
+from demucs.utils import center_trim, tensor_chunk
 from transformers import Wav2Vec2ForCTC
 
 
@@ -12,18 +13,24 @@ class DemucsWav2Vec(nn.Module):
         super().__init__()
 
         self.demucs = load_pretrained("demucs")
-        self.resample = torchaudio.transforms.Resample(44100, 16000)
+        self.resample = ta.transforms.Resample(self.demucs.samplerate, 16000)
         self.wav2vec = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
 
-    def forward(self, input_tensor):
-        # Demucs:
-        out_demucs = self.demucs(input_tensor)
+    def forward(self, mix):
+
+        batch, channels, length = mix.shape
+        mix_chunk = tensor_chunk(mix)
+        valid_length = self.demucs.valid_length(length)
+
+        padded_mix = mix_chunk.padded(valid_length)
+        sources = self.demucs(padded_mix)
+        sources = center_trim(sources, length)
 
         # Extract voice and squeeze:
-        output_voice = out_demucs[:, 3, :, :]
+        voice = sources[:, 3, :, :]
 
         # transform from stereo to mono:
-        output_voice_mono = torch.mean(output_voice, dim=1)
+        output_voice_mono = torch.mean(voice, dim=1)
 
         # change sample rate:
         output_voice_mono_sr = self.resample(output_voice_mono)

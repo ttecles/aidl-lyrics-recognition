@@ -8,6 +8,7 @@ from functools import partial
 from multiprocessing import Pool
 
 import DALI as dali_code
+import julius
 import torch
 import torchaudio
 import torchaudio.transforms as T
@@ -252,7 +253,8 @@ class DaliDataset(Dataset):
             print(chunk_meta)
             raise
         channels = waveform.size()[0]
-        waveform = T.Resample(sample_rate, self.samplerate)(waveform)
+
+        waveform = julius.resample_frac(waveform, sample_rate, self.samplerate)
 
         start_silence = chunk_meta.audio_start - chunk_meta.init_sample
         end_silence = chunk_meta.end_sample - chunk_meta.audio_end
@@ -266,5 +268,10 @@ class DaliDataset(Dataset):
             raise
         if channels == 1:
             waveform = torch.stack((waveform, waveform)).squeeze()
+
+        if self.normalize:
+        #     ref = waveform.mean(dim=-1)
+        #     waveform = (waveform - ref.mean()) / ref.std()
+            waveform = waveform / max(1.01 * waveform.abs().max(), 1.0)
 
         return (waveform, chunk_meta.lyrics)

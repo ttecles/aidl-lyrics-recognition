@@ -107,8 +107,9 @@ def main():
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
     # parser.add_argument("--dropout", type=float, default=0.5)
-    parser.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
-    parser.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
+    group.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
     parser.add_argument("--workers", type=int, default=0)
     parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder")
     parser.add_argument("--load-model", action="store_true", help="loads the model before training")
@@ -157,9 +158,14 @@ def main():
     else:
         stride = args.stride
 
+    if args.dali_gt_file:
+        gt_file = str(args.dali_gt_file.resolve(strict=True))
+    else:
+        gt_file = ''
+
     print("Loading DALI dataset...")
     dali_data = dali_code.get_the_DALI_dataset(str(args.DALI_DATA_PATH.resolve(strict=True)),
-                                               gt_file=str(args.dali_gt_file.resolve(strict=True)),
+                                               gt_file=gt_file,
                                                skip=blacklist,
                                                keep=[])
 
@@ -210,7 +216,7 @@ def main():
     if args.load_model:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     criterion = torch.nn.CTCLoss()
 
@@ -243,8 +249,8 @@ def main():
             # loss.backward()
             if step % gradient_accumulation_steps == 0:
                 optimizer.step()
-                if scheduler:
-                    scheduler.step(loss, epoch=epoch)
+                # if scheduler:
+                #     scheduler.step(loss, epoch=epoch)
                 optimizer.zero_grad()
                 wandb.log({"batch loss": loss.item()})
         train_losses = losses1
@@ -262,7 +268,7 @@ def main():
                               target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
                                                         dtype=torch.short)
                               )
-            val_losses.append(float(loss))
+            val_losses.append(loss.item())
 
         # Loss average
         average_train_loss = np.mean(train_losses)
