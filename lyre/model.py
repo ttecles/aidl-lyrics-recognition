@@ -1,7 +1,7 @@
+import julius
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchaudio as ta
 
 from demucs.pretrained import load_pretrained
 from demucs.utils import center_trim, tensor_chunk
@@ -13,11 +13,10 @@ class DemucsWav2Vec(nn.Module):
         super().__init__()
 
         self.demucs = load_pretrained("demucs")
-        self.resample = ta.transforms.Resample(self.demucs.samplerate, 16000)
+        self.resample = julius.resample.ResampleFrac(self.demucs.samplerate, 16000)
         self.wav2vec = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
 
     def forward(self, mix):
-
         batch, channels, length = mix.shape
         mix_chunk = tensor_chunk(mix)
         valid_length = self.demucs.valid_length(length)
@@ -30,7 +29,7 @@ class DemucsWav2Vec(nn.Module):
         voice = sources[:, 3, :, :]
 
         # transform from stereo to mono:
-        output_voice_mono = torch.mean(voice, dim=1)
+        output_voice_mono = voice.mean(dim=1)
 
         # change sample rate:
         output_voice_mono_sr = self.resample(output_voice_mono)
@@ -43,4 +42,4 @@ class DemucsWav2Vec(nn.Module):
         logits = self.wav2vec(input_values).logits
         log_prob = F.log_softmax(logits, dim=-1)
 
-        return log_prob
+        return log_prob, output_voice_mono
