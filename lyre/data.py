@@ -124,7 +124,7 @@ def _process_file(entry, samplerate, length, stride):
                 if text_notes and match:
                     text = match.group(0)
                 else:
-                    text = "<pad>"
+                    text = ""
             except:
                 print(text_notes)
             chunk = Chunk(
@@ -135,7 +135,7 @@ def _process_file(entry, samplerate, length, stride):
                 audio_end,
                 text.upper(),
             )
-            if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end:
+            if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end or not text:
                 # print("Invalid Chunk: ", chunk)
                 pass
             else:
@@ -270,8 +270,6 @@ class DaliDataset(Dataset):
             waveform = torch.stack((waveform, waveform)).squeeze()
 
         if self.normalize:
-        #     ref = waveform.mean(dim=-1)
-        #     waveform = (waveform - ref.mean()) / ref.std()
             waveform = waveform / max(1.01 * waveform.abs().max(), 1.0)
 
-        return (waveform, chunk_meta.lyrics)
+        return (waveform.type(torch.ShortTensor), chunk_meta.lyrics)
