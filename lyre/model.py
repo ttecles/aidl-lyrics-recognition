@@ -34,7 +34,6 @@ class DemucsWav2Vec(nn.Module):
 
         # Wav2Vec:
         logits = self.wav2vec(input_values).logits
-        predicted_ids = torch.argmax(logits, dim=-1)
         log_prob = F.log_softmax(logits, dim=-1)
 
-        return predicted_ids
+        return log_prob
