@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import wandb
 from accelerate import Accelerator
 from torch import optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
@@ -80,6 +80,7 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
 
 
 def save_model(model, optimizer, epoch, loss, folder):
+    os.makedirs(folder)
     print(f"Saving checkpoint to {folder}/model.pt...")
     # We can save everything we will need later in the checkpoint.
     torch.save({
@@ -103,6 +104,8 @@ def main():
     parser.add_argument("--stride", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch", type=int, default=8)
+    parser.add_argument("--ncc", type=float, default=0, help="Train only with files with NCC score bigger than NCC")
+    parser.add_argument("--train-split", type=float, default=0.7, help="Train proprtion")
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
@@ -141,6 +144,7 @@ def main():
     if 'WANDB_KEY' in os.environ:
         wandb.login(key=os.environ['WANDB_KEY'])
         os.environ["WANDB_SILENT"] = "true"
+        os.environ["WANDB_MODE"] = "offline"
     wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
                config=config)
     config = wandb.config
@@ -169,16 +173,28 @@ def main():
                                                skip=blacklist,
                                                keep=[])
 
-    print("Preparing Datasets...")
-    test_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
-                               length=audio_length, stride=stride, ncc=(.94, None), workers=args.workers)
-    print(f"Test DaliDataset: {len(test_dataset)} chunks")
-    validation_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
-                                     length=audio_length, stride=stride, ncc=(.925, .94), workers=args.workers)
-    print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
-    train_dataset = DaliDataset(dali_data, dali_audio_path=args.DALI_AUDIO_PATH.resolve(strict=True),
-                                length=audio_length, stride=stride, ncc=(.8, .925), workers=args.workers)
-    print(f"Train DaliDataset: {len(train_dataset)} chunks")
+    if args.ncc:
+        dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
+                              length=audio_length, stride=stride, ncc=(args.ncc, None), workers=args.workers)
+        train_dataset, validation_dataset = random_split(dataset, [int(len(dataset) * args.train_split),
+                                                                   len(dataset) - int(len(dataset) * args.train_split)],
+                                                         generator=torch.Generator().manual_seed(42))
+        test_dataset = []
+        print(f"Test DaliDataset: {len(test_dataset)} chunks")
+        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+        print(f"Train DaliDataset: {len(train_dataset)} chunks")
+    else:
+
+        print("Preparing Datasets...")
+        test_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
+                                   length=audio_length, stride=stride, ncc=(.94, None), workers=args.workers)
+        print(f"Test DaliDataset: {len(test_dataset)} chunks")
+        validation_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
+                                         length=audio_length, stride=stride, ncc=(.925, .94), workers=args.workers)
+        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+        train_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
+                                    length=audio_length, stride=stride, ncc=(.8, .925), workers=args.workers)
+        print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
 
@@ -244,6 +260,7 @@ def main():
 
             accelerator.backward(loss)
 
+            wandb.log({"batch_train_loss": loss.item()})
             optimizer.step()
             if scheduler:
                 scheduler.step(loss)
@@ -251,8 +268,7 @@ def main():
             optimizer.zero_grad()
 
             predicted_ids = torch.argmax(logits, dim=-1)
-        wandb_data = {"batch_train_loss": loss.item(),
-                      "input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
+        wandb.log({"input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
                                            sample_rate=model.demucs.samplerate),
                       "voice": wandb.Audio(voice[0].detach().numpy(), sample_rate=model.sr_wav2vec),
                       "predictions": wandb.Html(f"""<table style="width:100%">
@@ -261,7 +277,7 @@ def main():
                    <td>{idx}</td>
                    <td>{tokenizer.decode(lyrics[0])}</td>
                    <td>{tokenizer.batch_decode(predicted_ids)[0]}</td></tr>
-                   </table>"""), }
+                   </table>"""), })
 
         model.eval()
         val_losses = []
@@ -285,7 +301,7 @@ def main():
         losses['train'].append(average_train_loss)
         losses['valid'].append(average_valid_loss)
 
-        wandb.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss, **wandb_data})
+        wandb.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss})
 
         secs = int(time.time() - start_time)
         mins = secs / 60
