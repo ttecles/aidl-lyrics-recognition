@@ -198,7 +198,7 @@ class DaliDataset(Dataset):
     def _load_data(self):
         if not self.dali_data:
             print("Loading DALI data from ", self.dali_data_path)
-            self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, self.gt_file, skip=self.blacklist)
+            self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, gt_file=self.gt_file or '', skip=self.blacklist)
 
         # print("Generating dataset information")
         files = list(self.dali_audio_path.glob("*.mp3"))
