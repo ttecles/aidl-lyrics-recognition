@@ -94,7 +94,7 @@ class TestDaliDataset(TestCase):
             mock_dali.get_the_DALI_dataset.return_value = {"test": ann}
 
             chunk_length = 800
-            dt = DaliDataset(pathlib.Path("."), length=chunk_length)
+            dt = DaliDataset(dali_data=pathlib.Path("."), dali_audio_path=pathlib.Path("./audio"), length=chunk_length)
 
             self.assertListEqual(dt.chunk_map, [
                 Chunk(song_id='test',

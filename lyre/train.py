@@ -80,7 +80,7 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
 
 
 def save_model(model, optimizer, epoch, loss, folder):
-    os.makedirs(folder)
+    os.makedirs(folder, exist_ok=True)
     print(f"Saving checkpoint to {folder}/model.pt...")
     # We can save everything we will need later in the checkpoint.
     torch.save({
@@ -180,6 +180,7 @@ def main():
                                                                    len(dataset) - int(len(dataset) * args.train_split)],
                                                          generator=torch.Generator().manual_seed(42))
         test_dataset = []
+        assert len(train_dataset) > 0 and len(validation_dataset) > 0, "No data selected with these parameters"
         print(f"Test DaliDataset: {len(test_dataset)} chunks")
         print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
