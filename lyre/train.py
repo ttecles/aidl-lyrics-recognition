@@ -79,7 +79,7 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
 #     return test_loss, test_acc
 
 
-def save_model(model, optimizer, epoch, loss, folder):
+def save_model(model, optimizer, loss, folder, epoch=None):
     os.makedirs(folder, exist_ok=True)
     print(f"Saving checkpoint to {folder}/model.pt...")
     # We can save everything we will need later in the checkpoint.
@@ -311,10 +311,10 @@ def main():
         # print progress
         accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
 
-        if args.model_folder:
-            save_model(model, optimizer, epoch, losses['train'][-1], args.model_folder)
     accelerator.print("Training finished")
 
+    if args.model_folder:
+        save_model(model, optimizer, losses['train'][-1], args.model_folder)
     # test_loss, test_acc = test_model(test_loader, model, criterion)
     # accelerator.print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
     # wandb.log({"test_loss": test_loss, "test_acc": test_acc, "lyrics": table})
