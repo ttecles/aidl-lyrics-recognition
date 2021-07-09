@@ -6,6 +6,8 @@ Team: [Anne-Kristin Fischer](https://www.linkedin.com/in/anne-kristin-fischer-2b
 
 Advisor: [Gerard I. Gállego](https://www.linkedin.com/in/gerard-gallego/)
 
+GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://github.com/ttecles/aidl-lyrics-recognition)
+
 To install the project we recommend using a virtual environment (venv). Steps to follow:
 
 ```bash 
@@ -28,7 +30,7 @@ pip install -r requirements.txt
     2. [Evaluation Metrics](#metrics)
 5. [Preprocessing and tests](#tests)
     1. [Preprocessing the data set](#dataset_preprocess)
-    2. [Fine-tuning of parameters](#parameters)
+    2. [Fine-tuning of the parameters](#parameters)
 6. [Results](#results)
 7. [Results Improvement](#improving_results)
 8. [The Google Cloud Instance](#gcinstance)
@@ -48,9 +50,9 @@ Practical applications for music lyrics recognition such as the creation of kara
 ### 1.1 Motivation <a name="motivation"></a>
 Our decision for a lyrics recognition task with deep learning techniques is the attempt to combine several of our personal and professional interests. All team members have a more or less professional background in the music industry additionally to a particular interest in source separation tasks and natural language processing.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /></p>
-
-<p><em>Figure 1: Our passion for music, language and deep learning combined</em></p>
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /></p>           
+       
+_Figure 1<span>: Our passion for music, language and deep learning combined\.</span>_
 
 <p align="right"><a href="#toc">To top</a></p>
 
@@ -71,6 +73,7 @@ To reach our goals, we set up the following milestones:
 * Analyse the obtained results 
 * Implement the project inside a web application
 * Make suggestions for further investigation
+* _Optional: add a language model to improve the results of the transcription task_
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 2. Data Set <a name="dataset"></a>
@@ -87,7 +90,7 @@ _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, word
 ## 3. Working Environment <a name="working_env"></a>
 To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. To train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL"><img src="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL" style="width: auto; max-width: 50%; height: 100px" title="Colab" /> <a href="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ"><img src="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ" style="width: auto; max-width: 50%; height: 100px" title="wandb" /> <a href="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF"><img src="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF" style="width: auto; max-width: 50%; height: 100px" title="GCloud" /> <a href="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z"><img src="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z" style="width: auto; max-width: 50%; height: 100px" title="pytorch" /><p >
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL"><img src="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL" style="width: auto; max-width: 50%; height: 80px" title="Colab" /> <a href="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ"><img src="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ" style="width: auto; max-width: 50%; height: 80px" title="wandb" /> <a href="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF"><img src="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF" style="width: auto; max-width: 50%; height: 80px" title="GCloud" /> <a href="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z"><img src="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z" style="width: auto; max-width: 50%; height: 80px" title="pytorch" /></p >
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 4. General Architecture <a name="architecture"></a>
@@ -98,34 +101,35 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
 <p align="right"><a href="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r"><img src="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r" style="width: auto; max-width: 100%; height: 250px" title="Demucs" /> <a href="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK"><img src="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK" style="width: auto; max-width: 100%; height: 250px" title="wav2vec" /><p > 
 
 ![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)    
-_Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
+    _<area>Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
 <p align="right"><a href="#toc">To top</a></p>
 
 ### 4.1 Main Hyperparameters <a name="main_hyperparameters"></a>
-
-For first training we applied standard values for our model hyperparameters, that is parameters which are proven to deliver first good results such as Adam optimizer and a learning rate of 0.0001.
     
-Parameter | Demucs  | Wav2Vec  | Language model
------------- | ------------ | -------------
-Optimizer | Adam | Adam |  
-Learning rate | 0.0001 | 0.0001 |
-Weight decay | 0.0001 | 0.0001 |
-Audio length | 10 sec. | 10 sec. |
-Batch Size |   |   |  
-Epochs |   |   |  
+For first training we applied standard values for our model hyperparameters, that is parameters which are proven to deliver first good results such as Adam optimizer and a learning rate of 0.0001. 
     
+| Parameter | Demucs  | Wav2Vec  | Language model
+| ------------ | ------------ | ------------- | ----
+| Optimizer | Adam | Adam |  
+| Learning rate | 0.0001 | 0.0001 |
+| Weight decay | 0.0001 | 0.0001 |
+| Audio length | 10 sec. | 10 sec. |
+| Batch Size |   |   |  
+| Epochs |   |   |  
+   
 <p align="right"><a href="#toc">To top</a></p>
 
 ### 4.2 Evaluation Metrics <a name="metrics"></a>
 For training and validation of Demucs and Wav2Vec model we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>    
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>
 _Figure 5: CTC loss: architecture and its calculation_
 
-For the language model we applied WER loss.
+For the language model we applied WER loss.   
     
-![image](https://drive.google.com/uc?export=view&id=1N4Ecf8kh_TDR_IatFsqR6TQBTHqyqQ86)
-_Figure 6: WER loss_
+![image](https://drive.google.com/uc?export=view&id=1N4Ecf8kh_TDR_IatFsqR6TQBTHqyqQ86)       
+    _Figure 6: WER loss_    
+
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 5. Preprocessing and tests <a name="tests"></a>
@@ -142,10 +146,10 @@ where NCCt is a correlation score which indicates how accurate the automatic ali
     _Figure 8: Automatic alignment of singing voice and text in DALI with teacher-student paradigm based on NCCt score for the student_
 <p align="right"><a href="#toc">To top</a></p>
 
-### 5.2 Fine-tuning of parameters <a name="parameters"></a>
-
+### 5.2 Fine-tuning of the parameters <a name="parameters"></a>
+    
 Parameter | Demucs  | Wav2Vec  | Language model
------------- | ------------ | -------------
+--------- | ------- | -------- | --------------
 Optimizer | Adam | Adam |  
 Learning rate | 0.0001 | 0.0001 |
 Weight decay | 0.0001 | 0.0001 |
@@ -172,7 +176,6 @@ As already mentioned before recognition tasks in music remain complex. Additiona
 Further research could be done for:
 * melody extraction
 * chords transcription
-* adding a language model to improve the results of the transcription task
 * summary of the lyrics
 * pitch recognition
 * contribute to larger datasets of high quality
