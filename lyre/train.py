@@ -269,10 +269,10 @@ def main():
             optimizer.zero_grad()
 
             predicted_ids = torch.argmax(logits, dim=-1)
-        wandb.log({"input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
-                                           sample_rate=model.demucs.samplerate),
-                      "voice": wandb.Audio(voice[0].detach().numpy(), sample_rate=model.sr_wav2vec),
-                      "predictions": wandb.Html(f"""<table style="width:100%">
+        wandb.log({"input": wandb.Audio(waveform[0].mean(0).cpu().numpy(),
+                                        sample_rate=model.demucs.samplerate),
+                   "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
+                   "predictions": wandb.Html(f"""<table style="width:100%">
                    <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
                    <tr><td>{epoch}</td>
                    <td>{idx}</td>
