@@ -26,9 +26,9 @@ pip install -r requirements.txt
 4. [General Architecture](#architecture)
     1. [Main Hyperparameters](#main_hyperparameters)
     2. [Evaluation Metrics](#metrics)
-5. [First Tests](#initial)
+5. [Preprocessing and tests](#tests)
     1. [Preprocessing the data set](#dataset_preprocess)
-    2. [Parameters](#parameters)
+    2. [Fine-tuning of parameters](#parameters)
 6. [Results](#results)
 7. [Results Improvement](#improving_results)
 8. [The Google Cloud Instance](#gcinstance)
@@ -102,30 +102,57 @@ _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Ve
 <p align="right"><a href="#toc">To top</a></p>
 
 ### 4.1 Main Hyperparameters <a name="main_hyperparameters"></a>
+
+For first training we applied standard values for our model hyperparameters, that is parameters which are proven to deliver first good results such as Adam optimizer and a learning rate of 0.0001.
+    
+Parameter | Demucs  | Wav2Vec  | Language model
+------------ | ------------ | -------------
+Optimizer | Adam | Adam |  
+Learning rate | 0.0001 | 0.0001 |
+Weight decay | 0.0001 | 0.0001 |
+Audio length | 10 sec. | 10 sec. |
+Batch Size |   |   |  
+Epochs |   |   |  
+    
 <p align="right"><a href="#toc">To top</a></p>
 
 ### 4.2 Evaluation Metrics <a name="metrics"></a>
-For training and validation we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model.
+For training and validation of Demucs and Wav2Vec model we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model.
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>    
 _Figure 5: CTC loss: architecture and its calculation_
+
+For the language model we applied WER loss.
+    
+![image](https://drive.google.com/uc?export=view&id=1N4Ecf8kh_TDR_IatFsqR6TQBTHqyqQ86)
+_Figure 6: WER loss_
 <p align="right"><a href="#toc">To top</a></p>
 
-## 5. First Tests <a name="initial"></a>
+## 5. Preprocessing and tests <a name="tests"></a>
 ### 5.1 Preprocessing the data set <a name="dataset_preprocess"></a>
 Preprocessing the data set correctly for our purpose was proven to be one of the major obstacles we encountered. We focused on songs in English only, that is 3491 songs in full duration. Preprocessing included omitting special characters as well as negative time stamps and transforming the lyrics in upper case only. To make sure to obtain meaningful results after training and to avoid cut-off lyrics, we prepared chunks. For these chunks we discarded words split among multiple notes at the beginning and end of each chunk and we cut out silent passages without voice. To make data accessible for our model, the audio waveform needed to be resampled to a sample rate of 44100 Hz.
 As alignment is done automatically in DALI and groundtruth is available only for few audio samples, we followed the suggestions for train/validation/test split by the authors. That is:
 
 ![image](https://drive.google.com/uc?export=view&id=17tIQ9EroDUCo4dG-1tF6OZDlSVmv5aii)    
-    _Figure 6: Suggested NCCt scores for train, validation and test_
+    _Figure 7: Suggested NCCt scores for train, validation and test_
     
 where NCCt is a correlation score which indicates how accurate the automatic alignment is. Higher means better. The number of tracks refers to the whole data set, including as well songs in other languages for both the first and second version of the dataset.
 
 ![image](https://drive.google.com/uc?export=view&id=1tDukLCKRWCIfKMtsCoh-WGEUI7jFvv5V)    
-    _Figure 7: Automatic alignment of singing voice and text in DALI with teacher-student paradigm based on NCCt score for the student_
+    _Figure 8: Automatic alignment of singing voice and text in DALI with teacher-student paradigm based on NCCt score for the student_
 <p align="right"><a href="#toc">To top</a></p>
 
-### 5.2 Finding the right parameters <a name="parameters"></a>
+### 5.2 Fine-tuning of parameters <a name="parameters"></a>
+
+Parameter | Demucs  | Wav2Vec  | Language model
+------------ | ------------ | -------------
+Optimizer | Adam | Adam |  
+Learning rate | 0.0001 | 0.0001 |
+Weight decay | 0.0001 | 0.0001 |
+Audio length | 10 sec. | 10 sec. |
+Batch Size |   |   |  
+Epochs |   |   |  
+
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 6. Results <a name="results"></a>
@@ -185,3 +212,5 @@ https://pytorch.org/docs/stable/torch.html
 https://transactions.ismir.net/articles/10.5334/tismir.30/
     
 https://distill.pub/2017/ctc/
+    
+https://medium.com/descript/challenges-in-measuring-automatic-transcription-accuracy-f322bf5994f
