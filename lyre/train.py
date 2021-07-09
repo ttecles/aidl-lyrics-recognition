@@ -86,7 +86,7 @@ def save_model(model, optimizer, epoch, loss, folder):
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.cpu().state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
+        'optimizer_state_dict': optimizer.cpu().state_dict(),
         'loss': loss
     }, folder + "/model.pt")
 
