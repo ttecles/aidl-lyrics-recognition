@@ -79,14 +79,14 @@ def test_model(test_data, model, criterion):
 
 
 def save_model(model, optimizer, epoch, loss, folder):
-    print(f"Saving checkpoint to {folder}...")
+    print(f"Saving checkpoint to {folder}/model.pt...")
     # We can save everything we will need later in the checkpoint.
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.cpu().state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss
-    }, folder)
+    }, folder+"/model.pt")
 
 
 def main():
