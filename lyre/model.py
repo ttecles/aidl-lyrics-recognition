@@ -1,7 +1,6 @@
 import julius
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from demucs.pretrained import load_pretrained
 from demucs.utils import center_trim, tensor_chunk

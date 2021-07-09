@@ -8,10 +8,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
+from accelerate import Accelerator
 from torch import optim
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-from accelerate import Accelerator
+
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
 
@@ -251,17 +252,16 @@ def main():
 
             predicted_ids = torch.argmax(logits, dim=-1)
         wandb_data = {"batch_train_loss": loss.item(),
-                   "input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
-                                        sample_rate=model.demucs.samplerate),
-                   "voice": wandb.Audio(voice[0].detach().numpy(), sample_rate=model.sr_wav2vec),
-                   "predictions": wandb.Html(f"""<table style="width:100%">
+                      "input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
+                                           sample_rate=model.demucs.samplerate),
+                      "voice": wandb.Audio(voice[0].detach().numpy(), sample_rate=model.sr_wav2vec),
+                      "predictions": wandb.Html(f"""<table style="width:100%">
                    <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
                    <tr><td>{epoch}</td>
                    <td>{idx}</td>
                    <td>{tokenizer.decode(lyrics[0])}</td>
                    <td>{tokenizer.batch_decode(predicted_ids)[0]}</td></tr>
                    </table>"""), }
-
 
         model.eval()
         val_losses = []
