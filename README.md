@@ -48,8 +48,10 @@ Practical applications for music lyrics recognition such as the creation of kara
 ### 1.1 Motivation <a name="motivation"></a>
 Our decision for a lyrics recognition task with deep learning techniques is the attempt to combine several of our personal and professional interests. All team members have a more or less professional background in the music industry additionally to a particular interest in source separation tasks and natural language processing.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /><p >    
-    _Figure 1: Our passion for music, language and deep learning combined_
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /></p>
+
+<p><em>Figure 1: Our passion for music, language and deep learning combined</em></p>
+
 <p align="right"><a href="#toc">To top</a></p>
 
 ### 1.2 Project Goals <a name="goals"></a>
@@ -74,9 +76,12 @@ To reach our goals, we set up the following milestones:
 ## 2. Data Set <a name="dataset"></a>
 To train our model we opted for the [DALI data set](https://github.com/gabolsgabs/DALI), published in 2018. It is to this day the biggest data set in the field of singing voice research which aligns audio to notes and their lyrics along high quality standards. Access was granted to us for the first version, DALI v1, with 5358 songs in full duration and multiple languages. For more information please check as well [this article](https://transactions.ismir.net/articles/10.5334/tismir.30/), published by the International Society for Music Information Retrieval.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /> <a href="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv"><img src="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv" style="width: auto; max-width: 100%; height: 200px" title="dali_horizontal" /><p >    
-    _Figure 2: Alignment of notes and text in DALI data set based on triples of {time (start and duration), note, text}_
-    _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, words and notes are interconnected vertically_
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /></p>
+_Figure 2: Alignment of notes and text in DALI data set based on triples of {time (start and duration), note, text}_
+    
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv"><img src="https://drive.google.com/uc?export=view&id=1wiIgKXR0aWBqDtang5Xaim9tqUS06sTv" style="width: auto; max-width: 100%; height: 200px" title="dali_horizontal" /></p>
+_Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, words and notes are interconnected vertically_
+
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 3. Working Environment <a name="working_env"></a>
@@ -93,8 +98,8 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
 <p align="right"><a href="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r"><img src="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r" style="width: auto; max-width: 100%; height: 250px" title="Demucs" /> <a href="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK"><img src="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK" style="width: auto; max-width: 100%; height: 250px" title="wav2vec" /><p > 
 
 ![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)    
-    _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
- <p align="right"><a href="#toc">To top</a></p>
+_Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
+<p align="right"><a href="#toc">To top</a></p>
 
 ### 4.1 Main Hyperparameters <a name="main_hyperparameters"></a>
 <p align="right"><a href="#toc">To top</a></p>
@@ -102,8 +107,8 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
 ### 4.2 Evaluation Metrics <a name="metrics"></a>
 For training and validation we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /><p >    
-    _Figure 5: CTC loss: architecture and its calculation_
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>    
+_Figure 5: CTC loss: architecture and its calculation_
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 5. First Tests <a name="initial"></a>
