@@ -272,4 +272,4 @@ class DaliDataset(Dataset):
         if self.normalize:
             waveform = waveform / max(1.01 * waveform.abs().max(), 1.0)
 
-        return (waveform.type(torch.ShortTensor), chunk_meta.lyrics)
+        return (waveform, chunk_meta.lyrics)

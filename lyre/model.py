@@ -9,11 +9,12 @@ from transformers import Wav2Vec2ForCTC
 
 
 class DemucsWav2Vec(nn.Module):
-    def __init__(self):
+    def __init__(self, sr_wav2vec=16000):
         super().__init__()
 
         self.demucs = load_pretrained("demucs")
-        self.resample = julius.resample.ResampleFrac(self.demucs.samplerate, 16000)
+        self.sr_wav2vec = sr_wav2vec
+        self.resample = julius.resample.ResampleFrac(self.demucs.samplerate, self.sr_wav2vec)
         self.wav2vec = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
 
     def forward(self, mix):
@@ -40,6 +41,5 @@ class DemucsWav2Vec(nn.Module):
 
         # Wav2Vec:
         logits = self.wav2vec(input_values).logits
-        log_prob = F.log_softmax(logits, dim=-1)
 
-        return log_prob, output_voice_mono
+        return logits, output_voice_mono_sr

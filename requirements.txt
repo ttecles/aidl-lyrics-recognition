@@ -8,3 +8,4 @@ transformers
 jiwer
 python-dotenv
 accelerate
+soundfile

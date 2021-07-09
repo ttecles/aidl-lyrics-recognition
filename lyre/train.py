@@ -60,22 +60,22 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
 # Training
 
 
-def test_model(test_data, model, criterion):
-    model.eval()
-    test_loss = 0
-    acc = 0
-    with torch.no_grad():
-        for batch, (waveform, lyrics) in test_data:
-            output = model(test_data)
-
-            test_loss += criterion(output, lyrics)
-            acc += accuracy(output, lyrics)
-            print(test_loss, acc)
-    test_loss /= len(test_data.dataset)  # test_data.dataset is supposed to be the test split in the dataset
-    test_acc = 100. * acc / len(test_data.dataset)
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, acc, len(test_data.dataset),
-                                                                                 test_acc))
-    return test_loss, test_acc
+# def test_model(test_data, model, criterion):
+#     model.eval()
+#     test_loss = 0
+#     acc = 0
+#     with torch.no_grad():
+#         for waveform, lyrics in test_data:
+#             output = model(test_data)
+#
+#             test_loss += criterion(output, lyrics)
+#             acc += accuracy(output, lyrics)
+#             print(test_loss, acc)
+#     test_loss /= len(test_data.dataset)  # test_data.dataset is supposed to be the test split in the dataset
+#     test_acc = 100. * acc / len(test_data.dataset)
+#     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, acc, len(test_data.dataset),
+#                                                                                  test_acc))
+#     return test_loss, test_acc
 
 
 def save_model(model, optimizer, epoch, loss, folder):
@@ -86,7 +86,7 @@ def save_model(model, optimizer, epoch, loss, folder):
         'model_state_dict': model.cpu().state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss
-    }, folder+"/model.pt")
+    }, folder + "/model.pt")
 
 
 def main():
@@ -215,7 +215,7 @@ def main():
     if args.load_model:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     criterion = torch.nn.CTCLoss()
 
@@ -228,47 +228,55 @@ def main():
     for epoch in range(config.epochs):
         start_time = time.time()
         model.train()
-        losses1 = []
-        for step, batch in enumerate(train_loader):
+        train_losses = []
+        for idx, batch in enumerate(train_loader):
             waveform, lyrics = batch
-            waveform = waveform
-
-            output, voice = model(waveform)
-            batch_size, input_lengths, classes = output.size()
+            logits, voice = model(waveform)
+            batch_size, input_lengths, classes = logits.size()
             _, target_lengths = lyrics.size()
-            output = output.permute(1, 0, 2)
-            loss = criterion(output, lyrics,
+            log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
+            loss = criterion(log_prob, lyrics,
                              input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
                              target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
                                                        dtype=torch.short))
-            loss = loss / gradient_accumulation_steps
-            losses1.append(float(loss))
+            train_losses.append(loss.item())
 
             accelerator.backward(loss)
-            # loss.backward()
-            if step % gradient_accumulation_steps == 0:
-                optimizer.step()
-                # if scheduler:
-                #     scheduler.step(loss, epoch=epoch)
-                optimizer.zero_grad()
-                wandb.log({"batch loss": loss.item()})
-        train_losses = losses1
+
+            optimizer.step()
+            if scheduler:
+                scheduler.step(loss)
+
+            optimizer.zero_grad()
+
+            predicted_ids = torch.argmax(logits, dim=-1)
+        wandb_data = {"batch_train_loss": loss.item(),
+                   "input": wandb.Audio(waveform[0].mean(0).detach().numpy(),
+                                        sample_rate=model.demucs.samplerate),
+                   "voice": wandb.Audio(voice[0].detach().numpy(), sample_rate=model.sr_wav2vec),
+                   "predictions": wandb.Html(f"""<table style="width:100%">
+                   <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
+                   <tr><td>{epoch}</td>
+                   <td>{idx}</td>
+                   <td>{tokenizer.decode(lyrics[0])}</td>
+                   <td>{tokenizer.batch_decode(predicted_ids)[0]}</td></tr>
+                   </table>"""), }
+
 
         model.eval()
         val_losses = []
 
         for waveform, lyrics in val_loader:
             with torch.no_grad():
-                output, voice = model(waveform)
-                batch_size, input_lengths, classes = output.size()
+                logits, voice = model(waveform)
+                batch_size, input_lengths, classes = logits.size()
                 _, target_lengths = lyrics.size()
-                output = output.permute(1, 0, 2)
-                loss = criterion(output, lyrics,
+                log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
+                loss = criterion(log_prob, lyrics,
                                  input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
                                                           dtype=torch.short),
                                  target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
-                                                           dtype=torch.short)
-                                 )
+                                                           dtype=torch.short))
                 val_losses.append(loss.item())
 
         # Loss average
@@ -277,8 +285,7 @@ def main():
         losses['train'].append(average_train_loss)
         losses['valid'].append(average_valid_loss)
 
-        wandb.log({"train_loss": average_train_loss})
-        wandb.log({"valid_loss": average_valid_loss})
+        wandb.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss, **wandb_data})
 
         secs = int(time.time() - start_time)
         mins = secs / 60
@@ -291,9 +298,9 @@ def main():
             save_model(model, optimizer, epoch, losses['train'][-1], args.model_folder)
     accelerator.print("Training finished")
 
-    test_loss, test_acc = test_model(test_loader, model, criterion)
-    accelerator.print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
-    wandb.log({"test_loss": test_loss, "test_acc": test_acc})
+    # test_loss, test_acc = test_model(test_loader, model, criterion)
+    # accelerator.print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
+    # wandb.log({"test_loss": test_loss, "test_acc": test_acc, "lyrics": table})
 
 
 if __name__ == "__main__":
