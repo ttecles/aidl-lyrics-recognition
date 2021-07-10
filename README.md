@@ -31,12 +31,14 @@ pip install -r requirements.txt
 5. [Preprocessing and tests](#tests)
     1. [Preprocessing the data set](#dataset_preprocess)
     2. [Fine-tuning of the parameters](#parameters)
-6. [Results](#results)
-7. [Results Improvement](#improving_results)
-8. [The Google Cloud Instance](#gcinstance)
-9. [Conclusions](#conclusions)
-10. [Next Steps](#next_steps)
-11. [References](#references)
+6. [Results and results improvement](#results)
+    1. [Experiment 1: First train with the full dataset](#experiment_1)
+    2. [Experiment 2: Overfitting with one chunk](#experiment_2)
+    3. [Experiment 3: Awesome experiment](#experiment_3)
+7. [The Google Cloud Instance](#gcinstance)
+8. [Conclusions](#conclusions)
+9. [Next Steps](#next_steps)
+10. [References](#references)
 
 ## 1. Introduction <a name="intro"></a>
 To this day few research is done in music lyrics recognition which is still considered a complex task. For its approach two subtasks can be determined:
@@ -161,22 +163,58 @@ Epochs |   |   |
 
 <p align="right"><a href="#toc">To top</a></p>
 
-## 6. Results <a name="results"></a>
+## 6. Results and results improvement <a name="results"></a>
 To our surprise we obtained initially a negative loss which could be explained by the training of data slices containing no lyrics. Furthermore, one of our training runs showed the level of corruption for Demucs: the voice quality, epoch by epoch, got worse. Considering different learning rates and optimizers for Demucs and Wav2Vec proved to be reasonable as Wav2Vec needed more attention in terms of fine-tuning than already pretrained Demucs. To make sure our model was working, a sanity check came in handy where we tested the model on a small batch on its possibility to overfit. We gradually augmented the batch size using a controllable small dataset with a NCCt score higher than 0.95 to make sure our model would still train properly.
+<p align="right"><a href="#toc">To top</a></p>
+    
+### 6.1 Experiment 1: First train with the full dataset <a name="experiment_1"></a> 
+    
+Parameter | Comments
+--------- | ------
+Hypothesis |  Our model will output awesome lyrics predictions.
+Set up | 
+Results | Our model shows weird metrics.
+Conclusions |  We are not sure if our model is even training.
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/mhujqbrx?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/First-run-with-full-dataset--Vmlldzo4NDEzNjM)
+    
+<p align="right"><a href="#toc">To top</a></p>
+    
+### 6.2 Experiment 2: Overfitting with one chunk <a name="experiment_2"></a>
+    
+Parameter | Comments
+--------- | ------
+Hypothesis | Our model works if it is “able” to overfit.
+Set up | 
+Results | Our model overfits.
+Conclusions | Our model is working and actually training.
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofaz64?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Overfit-1-chunk--Vmlldzo4NDEzNzc?accessToken=te8rgaea48t9a6rhaa2y15ymhfwurxnvnkcn0axjiqjew14e9d6i96re4ngqxdl5)
+ 
+!audio[Audio file](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
+![image](https://drive.google.com/file/d/1fI5c9Dob0yS7VtYOFcbNEVyn6VhST0Tm/view?usp=sharing) 
+![image](https://drive.google.com/file/d/1Wzr_bDE01l8Zb66tteI6_H36IeMS8Axb/view?usp=sharing) 
 
 <p align="right"><a href="#toc">To top</a></p>
-
-## 7. Results Improvement <a name="improving_results"></a>
+    
+### 6.3 Experiment 3: Awesome experiment <a name="experiment_3"></a>
+    
+Parameter | Comments
+--------- | ------
+Hypothesis |  
+Set up | 
+Results | 
+Conclusions |  
+Links | [Run], [Report]
+    
 <p align="right"><a href="#toc">To top</a></p>
 
-## 8. Google Cloud Instance <a name="gcinstance"></a>
+## 7. Google Cloud Instance <a name="gcinstance"></a>
 <p align="right"><a href="#toc">To top</a></p>
 
-## 9. Conclusions <a name="conclusions"></a>
+## 8. Conclusions <a name="conclusions"></a>
 As already mentioned before recognition tasks in music remain complex. Additionally, today as then the community laments a lack of well structured, aligned, large data sets for music information retrieval tasks. In consequence we needed to address the challenge to find an appropriate dataset and model architecture. Few literature for reference was available. We believe that our suggestion is a powerful solution for lyrics recognition. Though, its high computational cost in terms of time and money is evident and implementation remains to be optimized.
 <p align="right"><a href="#toc">To top</a></p>
 
-## 10. Next Steps <a name="next_steps"></a>
+## 9. Next Steps <a name="next_steps"></a>
 Further research could be done for:
 * melody extraction
 * chords transcription
@@ -185,7 +223,7 @@ Further research could be done for:
 * contribution to larger datasets of high quality
 <p align="right"><a href="#toc">To top</a></p>
 
-## 11. References <a name="references"></a>
+## 10. References <a name="references"></a>
 https://towardsdatascience.com/wav2vec-2-0-a-framework-for-self-supervised-learning-of-speech-representations-7d3728688cae
     
 https://ieeexplore.ieee.org/abstract/document/5179014
