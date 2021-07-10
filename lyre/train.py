@@ -14,6 +14,9 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
 
+#import ctcdecode
+#from transformers import Wav2Vec2CTCTokenizer
+
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
 
@@ -157,6 +160,21 @@ def main():
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
+    #CTCTokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
+    
+    #beam decoder
+    #vocab_dict = CTCTokenizer.get_vocab()
+    #sort_vocab = sorted((value, key) for (key,value) in vocab_dict.items())
+    #vocab = [x[1].replace("|", " ") if x[1] not in CTCTokenizer.all_special_tokens else "_" for x in sort_vocab]
+    #vocabulary = vocab
+    #Beamsearch_decoder = ctcdecode.BeamSearchDecoder(
+    #vocabulary,
+    #num_workers=2,
+    #beam_width=128,
+    #cutoff_prob=np.log(0.000001),
+    #cutoff_top_n=40
+)
+    
 
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
@@ -324,6 +342,9 @@ def main():
                 ground_truth = tokenizer.batch_decode(lyrics)
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
                 wers.append(jiwer.wer(ground_truth, predicted))
+                #Beamsearch_predicted = Beamsearch_decoder.batch_decode(logits.detach().numpy())
+                
+                
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers)
