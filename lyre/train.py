@@ -198,10 +198,14 @@ def main():
 
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
     # Load the model
-    model = DemucsWav2Vec(freeze_demucs=args.freeze_demucs)
+    model = DemucsWav2Vec()
     if args.load_model:
         checkpoint = torch.load(args.model_folder)
         model.load_state_dict(checkpoint["model_state_dict"])
+
+    if args.freeze_demucs:
+        for param in model.demucs.parameters():
+            param.requires_grad = False
 
     wandb.watch(model)
 
