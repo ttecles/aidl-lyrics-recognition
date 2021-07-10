@@ -180,6 +180,8 @@ def main():
 
     # KenLM
     #MyLM = kenlm.Model(text.arpa)
+    #alpha = 2.5 # LM Weight
+    #beta = 0.0 # LM Usage Reward
     #word_lm_scorer = ctcdecode.WordKenLMScorer(text.arpa, alpha, beta) 
     #Beam_lm_decoder = ctcdecode.BeamSearchDecoder(
     #vocabulary,
