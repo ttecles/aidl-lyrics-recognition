@@ -90,7 +90,7 @@ _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, word
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 3. Working Environment <a name="working_env"></a>
-To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. To train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
+To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. For visualization of the results and to train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL"><img src="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL" style="width: auto; max-width: 50%; height: 80px" title="Colab" /> <a href="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ"><img src="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ" style="width: auto; max-width: 50%; height: 80px" title="wandb" /> <a href="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF"><img src="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF" style="width: auto; max-width: 50%; height: 80px" title="GCloud" /> <a href="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z"><img src="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z" style="width: auto; max-width: 50%; height: 80px" title="pytorch" /></p >
 <p align="right"><a href="#toc">To top</a></p>
@@ -182,7 +182,7 @@ Further research could be done for:
 * chords transcription
 * summary of the lyrics
 * pitch recognition
-* contribute to larger datasets of high quality
+* contribution to larger datasets of high quality
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 11. References <a name="references"></a>
