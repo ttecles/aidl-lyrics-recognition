@@ -16,6 +16,7 @@ from transformers import AutoTokenizer
 
 #import ctcdecode
 #from transformers import Wav2Vec2CTCTokenizer
+#import kenlm
 
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
@@ -162,7 +163,7 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
     #CTCTokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
     
-    #beam decoder
+    # Beam decoder
     #vocab_dict = CTCTokenizer.get_vocab()
     #sort_vocab = sorted((value, key) for (key,value) in vocab_dict.items())
     #vocab = [x[1].replace("|", " ") if x[1] not in CTCTokenizer.all_special_tokens else "_" for x in sort_vocab]
@@ -174,6 +175,20 @@ def main():
     #cutoff_prob=np.log(0.000001),
     #cutoff_top_n=40
 )
+
+    # KenLM
+    #MyLM = kenlm.Model(text.arpa)
+    #word_lm_scorer = ctcdecode.WordKenLMScorer(text.arpa, alpha, beta) 
+    #Beam_lm_decoder = ctcdecode.BeamSearchDecoder(
+    #vocabulary,
+    #num_workers=2,
+    #beam_width=128,
+    #scorers=[word_lm_scorer],
+    #cutoff_prob=np.log(0.000001),
+    #cutoff_top_n=40
+)
+    #def lm_postprocess(text):
+        #return ' '.join([x if len(x) > 1 else "" for x in text.split()]).strip()
     
 
     def collate(batch: list):
@@ -342,9 +357,11 @@ def main():
                 ground_truth = tokenizer.batch_decode(lyrics)
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
                 wers.append(jiwer.wer(ground_truth, predicted))
+                
                 #Beamsearch_predicted = Beamsearch_decoder.batch_decode(logits.detach().numpy())
                 
-                
+                #KenLM_predicted = Beam_lm_decoder.batch_decode(logits.detach().numpy())
+                #KenLM_predicted= [lm_postprocess(x) for x in KenLM_predicted]
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers)
