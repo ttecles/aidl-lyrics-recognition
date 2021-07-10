@@ -10,7 +10,7 @@ from transformers import Wav2Vec2ForCTC
 class DemucsWav2Vec(nn.Module):
     def __init__(self, sr_wav2vec=16000, freeze_demucs=False):
         super().__init__()
-        self.demucs = load_pretrained("demucs")
+        self.demucs = load_pretrained("demucs_quantized")
         if freeze_demucs:
             for param in self.demucs.parameters():
                 param.requires_grad = False
@@ -44,3 +44,7 @@ class DemucsWav2Vec(nn.Module):
         logits = self.wav2vec(input_values).logits
 
         return logits, output_voice_mono_sr
+
+
+
+

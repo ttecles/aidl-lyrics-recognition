@@ -4,6 +4,7 @@ import pathlib
 import time
 
 import DALI as dali_code
+import jiwer
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -57,28 +58,6 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
             val_losses.append(float(loss))
     return val_losses
 
-
-# Training
-
-
-# def test_model(test_data, model, criterion):
-#     model.eval()
-#     test_loss = 0
-#     acc = 0
-#     with torch.no_grad():
-#         for waveform, lyrics in test_data:
-#             output = model(test_data)
-#
-#             test_loss += criterion(output, lyrics)
-#             acc += accuracy(output, lyrics)
-#             print(test_loss, acc)
-#     test_loss /= len(test_data.dataset)  # test_data.dataset is supposed to be the test split in the dataset
-#     test_acc = 100. * acc / len(test_data.dataset)
-#     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, acc, len(test_data.dataset),
-#                                                                                  test_acc))
-#     return test_loss, test_acc
-
-
 def save_model(model, optimizer, loss, folder, epoch=None):
     os.makedirs(folder, exist_ok=True)
     print(f"Saving checkpoint to {folder}/model.pt...")
@@ -127,27 +106,7 @@ def main():
         gradient_accumulation_steps = args.batch // MAX_GPU_BATCH_SIZE
         batch_size = MAX_GPU_BATCH_SIZE
 
-    config = {
-        'audio_length': args.audio_length,
-        'stride': args.stride,
-        'epochs': args.epochs,
-        'batch_size': args.batch,
-        'learning_rate': args.lr,
-        'weight_decay': args.weight_decay,
-        'optimizer': args.optimizer,
-        # 'dropout': args.dropout,
-        'workers': args.workers,
-        'freeze_demucs': args.freeze_demucs
-    }
 
-    # WANDB configuration
-    if 'WANDB_KEY' in os.environ:
-        wandb.login(key=os.environ['WANDB_KEY'])
-        os.environ["WANDB_SILENT"] = "true"
-        os.environ["WANDB_MODE"] = "offline"
-    wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
-               config=config)
-    config = wandb.config
 
     # User input validation and transformation
     if args.blacklist_file:
@@ -212,6 +171,31 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
                              num_workers=args.workers)
 
+    config = {
+        'audio_length': args.audio_length,
+        'stride': args.stride,
+        'epochs': args.epochs,
+        'batch_size': args.batch,
+        'learning_rate': args.lr,
+        'weight_decay': args.weight_decay,
+        'optimizer': args.optimizer,
+        # 'dropout': args.dropout,
+        'workers': args.workers,
+        'freeze_demucs': args.freeze_demucs,
+        'train_len': len(train_dataset),
+        'validation_len': len(validation_dataset),
+        'test_len': len(test_dataset)
+    }
+
+    # WANDB configuration
+    if 'WANDB_KEY' in os.environ:
+        wandb.login(key=os.environ['WANDB_KEY'])
+        os.environ["WANDB_SILENT"] = "true"
+        os.environ["WANDB_MODE"] = "offline"
+    wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
+               config=config)
+    config = wandb.config
+
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
     # Load the model
     model = DemucsWav2Vec(freeze_demucs=args.freeze_demucs)
@@ -223,10 +207,10 @@ def main():
 
     # Setup optimizer and LR scheduler
     # Define the optimizer
-    if config.optimizer == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-    elif config.optimizer == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
+    if args.optimizer == 'sgd':
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
     else:
         raise RuntimeError("No Optimizer specified")
 
@@ -278,7 +262,8 @@ def main():
                    <td>{idx}</td>
                    <td>{tokenizer.decode(lyrics[0])}</td>
                    <td>{tokenizer.batch_decode(predicted_ids)[0]}</td></tr>
-                   </table>"""), })
+                   </table>"""),
+                   "epoch": epoch})
 
         model.eval()
         val_losses = []
@@ -315,9 +300,31 @@ def main():
 
     if args.model_folder:
         save_model(model, optimizer, losses['train'][-1], args.model_folder)
-    # test_loss, test_acc = test_model(test_loader, model, criterion)
-    # accelerator.print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
-    # wandb.log({"test_loss": test_loss, "test_acc": test_acc, "lyrics": table})
+
+    if test_loader:
+        model.eval()
+        test_loss = []
+        wers = []
+        with torch.no_grad():
+            for waveform, lyrics in test_loader:
+                logits, voice = model(waveform)
+                batch_size, input_lengths, classes = logits.size()
+                _, target_lengths = lyrics.size()
+                log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
+                loss = criterion(log_prob, lyrics,
+                                 input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
+                                                          dtype=torch.short),
+                                 target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
+                                                           dtype=torch.short))
+                test_loss.append(loss.item())
+                ground_truth = tokenizer.batch_decode(lyrics)
+                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
+                wers.append(jiwer.wer(ground_truth, predicted))
+
+        test_loss = np.mean(test_loss)
+        test_wer = np.mean(wers)
+        accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer*100:.2f}% ')
+        wandb.log({"test_loss": test_loss, "test_wer": test_wer})
 
 
 if __name__ == "__main__":
