@@ -162,7 +162,7 @@ Epochs |   |   |
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 6. Results <a name="results"></a>
-To our surprise we obtained initially a negative loss which could be explained by the training of data slices containing no lyrics. Furthermore, one of our training runs showed the level of corruption for Demucs: the voice quality, epoch by epoch, got worse. Considering different learning rates and optimizers for Demucs and Wav2Vec proved to be reasonable as Wav2Vec needed more attention in terms of fine-tuning than already pretrained Demucs. To make sure our model was working a sanity check came in handy where we tested the model on a small batch on its possibilty to overfit. We gradually augmented the batch size using a controllable small dataset with a NCCt score higher than 0.95 to make sure our model would still train properly.
+To our surprise we obtained initially a negative loss which could be explained by the training of data slices containing no lyrics. Furthermore, one of our training runs showed the level of corruption for Demucs: the voice quality, epoch by epoch, got worse. Considering different learning rates and optimizers for Demucs and Wav2Vec proved to be reasonable as Wav2Vec needed more attention in terms of fine-tuning than already pretrained Demucs. To make sure our model was working, a sanity check came in handy where we tested the model on a small batch on its possibility to overfit. We gradually augmented the batch size using a controllable small dataset with a NCCt score higher than 0.95 to make sure our model would still train properly.
 
 <p align="right"><a href="#toc">To top</a></p>
 
