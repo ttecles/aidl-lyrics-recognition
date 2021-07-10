@@ -236,6 +236,7 @@ class DaliDataset(Dataset):
 
     def __len__(self):
         return len(self.chunk_map)
+        # return 1
 
     def __getitem__(self, idx):
         chunk_meta = self.chunk_map[idx]

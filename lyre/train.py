@@ -62,6 +62,7 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
             val_losses.append(float(loss))
     return val_losses
 
+
 def save_model(model, optimizer, loss, folder, epoch=None):
     os.makedirs(folder, exist_ok=True)
     print(f"Saving checkpoint to {folder}/model.pt...")
@@ -100,6 +101,7 @@ def main():
     parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder")
     parser.add_argument("--load-model", action="store_true", help="loads the model before training")
     parser.add_argument("--freeze-demucs", action="store_true", help="does not train demucs")
+    parser.add_argument("--freeze-extractor", action="store_true", help="freeze feature extractor layers from wav2vec")
 
     args = parser.parse_args()
 
@@ -109,8 +111,6 @@ def main():
     if args.batch > MAX_GPU_BATCH_SIZE:
         gradient_accumulation_steps = args.batch // MAX_GPU_BATCH_SIZE
         batch_size = MAX_GPU_BATCH_SIZE
-
-
 
     # User input validation and transformation
     if args.blacklist_file:
@@ -139,10 +139,12 @@ def main():
     if args.ncc:
         dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
                               length=audio_length, stride=stride, ncc=(args.ncc, None), workers=args.workers)
-        train_dataset, validation_dataset = random_split(dataset, [int(len(dataset) * args.train_split),
-                                                                   len(dataset) - int(len(dataset) * args.train_split)],
-                                                         generator=torch.Generator().manual_seed(42))
-        test_dataset = []
+        train_dataset, validation_dataset, test_dataset = \
+            random_split(dataset, [int(len(dataset) * args.train_split),
+                                   int(len(dataset) * (1 - args.train_split) / 2),
+                                   len(dataset) - int(len(dataset) * args.train_split) - int(
+                                       len(dataset) * (1 - args.train_split) / 2)],
+                         generator=torch.Generator().manual_seed(42))
         assert len(train_dataset) > 0 and len(validation_dataset) > 0, "No data selected with these parameters"
         print(f"Test DaliDataset: {len(test_dataset)} chunks")
         print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
@@ -215,6 +217,7 @@ def main():
         # 'dropout': args.dropout,
         'workers': args.workers,
         'freeze_demucs': args.freeze_demucs,
+        'freeze_extractor': args.freeze_extractor,
         'train_len': len(train_dataset),
         'validation_len': len(validation_dataset),
         'test_len': len(test_dataset)
@@ -239,6 +242,10 @@ def main():
     if args.freeze_demucs:
         for param in model.demucs.parameters():
             param.requires_grad = False
+
+    if args.freeze_extractor:
+        model.wav2vec.freeze_feature_extractor()
+        # model.wav2vec.wav2vec2.feature_projection.requires_grad_(False)
 
     wandb.watch(model)
 
@@ -289,7 +296,7 @@ def main():
 
             optimizer.zero_grad()
 
-            predicted_ids = torch.argmax(logits, dim=-1)
+        predicted_ids = torch.argmax(logits, dim=-1)
         wandb.log({"input": wandb.Audio(waveform[0].mean(0).cpu().numpy(),
                                         sample_rate=model.demucs.samplerate),
                    "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
@@ -329,7 +336,7 @@ def main():
         secs = int(time.time() - start_time)
         mins = secs / 60
         secs = secs % 60
-        accelerator.print(f"EPOCH: {epoch + 1},  | time in {mins} minutes, {secs} seconds")
+        accelerator.print(f"EPOCH: {epoch + 1},  | time in {int(mins)} minutes, {secs} seconds")
         # print progress
         accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
 
@@ -365,8 +372,9 @@ def main():
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers)
-        accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer*100:.2f}% ')
-        wandb.log({"test_loss": test_loss, "test_wer": test_wer})
+        accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer * 100:.2f}% ')
+        wandb.run.summary['wer'] = test_wer*100
+        wandb.run.summary['loss'] = test_loss
 
 
 if __name__ == "__main__":

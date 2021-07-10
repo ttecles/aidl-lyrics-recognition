@@ -40,7 +40,7 @@ class DemucsWav2Vec(nn.Module):
         # Wav2Vec:
         logits = self.wav2vec(input_values).logits
 
-        return logits, input_values
+        return logits, output_voice_mono_sr
 
 
 
