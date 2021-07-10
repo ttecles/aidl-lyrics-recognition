@@ -189,8 +189,10 @@ Results | Our model overfits.
 Conclusions | Our model is working and actually training.
 Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofaz64?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Overfit-1-chunk--Vmlldzo4NDEzNzc?accessToken=te8rgaea48t9a6rhaa2y15ymhfwurxnvnkcn0axjiqjew14e9d6i96re4ngqxdl5)
  
-!audio[Audio file](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
+![Audio file](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
+    
 ![image](https://drive.google.com/file/d/1fI5c9Dob0yS7VtYOFcbNEVyn6VhST0Tm/view?usp=sharing) 
+    
 ![image](https://drive.google.com/file/d/1Wzr_bDE01l8Zb66tteI6_H36IeMS8Axb/view?usp=sharing) 
 
 <p align="right"><a href="#toc">To top</a></p>
