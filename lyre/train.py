@@ -413,7 +413,9 @@ def main():
     save_model(model, optimizer, args.model_folder, train_loss=np.mean(losses["train"]),
                val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
+
     if test_loader:
+        accelerator.print("Testing the model...")
         model.eval()
         test_loss = []
         wers = []
