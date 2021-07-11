@@ -187,15 +187,9 @@ Hypothesis | Our model works if it is “able” to overfit.
 Set up | 
 Results | Our model overfits.
 Conclusions | Our model is working and actually training.
-Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofaz64?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Overfit-1-chunk--Vmlldzo4NDEzNzc?accessToken=te8rgaea48t9a6rhaa2y15ymhfwurxnvnkcn0axjiqjew14e9d6i96re4ngqxdl5)
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofaz64?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Overfit-1-chunk--Vmlldzo4NDEzNzc?accessToken=te8rgaea48t9a6rhaa2y15ymhfwurxnvnkcn0axjiqjew14e9d6i96re4ngqxdl5), [Audio track](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
 
-![image](https://drive.google.com/uc?export=view&id=1fI5c9Dob0yS7VtYOFcbNEVyn6VhST0Tm) ![image](https://drive.google.com/uc?export=view&id=1Wzr_bDE01l8Zb66tteI6_H36IeMS8Axb) 
-    
-<p ><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><iframe width="560" height="315" src="https://drive.google.com/uc?export=view&id=1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy" title="Audio" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></p>
-    
-[audio](https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M) 
-[audio](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
-[audio](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy)
+![image](https://drive.google.com/uc?export=view&id=1fI5c9Dob0yS7VtYOFcbNEVyn6VhST0Tm) ![image](https://drive.google.com/uc?export=view&id=1Wzr_bDE01l8Zb66tteI6_H36IeMS8Axb)
     
 <p align="right"><a href="#toc">To top</a></p>
     
