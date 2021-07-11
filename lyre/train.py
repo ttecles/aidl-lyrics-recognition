@@ -1,6 +1,10 @@
+import sys
+import typing as t
 import argparse
+import functools
 import os
 import pathlib
+import signal
 import time
 
 import DALI as dali_code
@@ -10,6 +14,7 @@ import kenlm
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch import nn
 import wandb
 from accelerate import Accelerator
 from torch import optim
@@ -22,6 +27,7 @@ from lyre.model import DemucsWav2Vec
 MAX_GPU_BATCH_SIZE = 16
 EVAL_BATCH_SIZE = 32
 TEXT_ARPA = os.environ["TEXT_ARPA"]
+CHECKPOINT_FOLDER = os.environ.get("CHECKPOINT_FOLDER")
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -62,17 +68,40 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
     return val_losses
 
 
-def save_model(model, optimizer, loss, folder, epoch=None):
+def save_model(model, optimizer: optim.Optimizer, folder, train_loss=None, val_loss=None, epoch=None,
+               accelerator: Accelerator = None):
     os.makedirs(folder, exist_ok=True)
-    print(f"Saving checkpoint to {folder}/model.pt...")
-    # We can save everything we will need later in the checkpoint.
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.cpu().state_dict(),
-        'optimizer_state_dict': optimizer.cpu().state_dict(),
-        'loss': loss
-    }, folder + "/model.pt")
+    filename = folder + f"/model_{int(time.time())}.pt"
+    print(f"Saving checkpoint {filename}")
+    if accelerator:
+        save_func = accelerator.save
+        accelerator.wait_for_everyone()
+        unwrapped_model = accelerator.unwrap_model(model)
+        unwrapped_optimizer = accelerator.unwrap_model(optimizer)
+        model_state_dict = unwrapped_model.state_dict()
+        optimizer_state_dict = unwrapped_optimizer.state_dict()
+    else:
+        save_func = torch.save
+        model_state_dict = model.state_dict()
+        optimizer_state_dict = optimizer.state_dict()
 
+    save_func({
+        'epoch': epoch,
+        'train_loss': train_loss,
+        'val_loss': val_loss,
+        'model_state_dict': model_state_dict,
+        'optimizer_state_dict': optimizer_state_dict
+    }, filename)
+
+
+def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None):
+    # First load into memory the variables that we will need to predict
+    checkpoint = torch.load(file)
+
+    model = model or DemucsWav2Vec()
+    model.load_state_dict(checkpoint["model_state_dict"])
+    if optimizer and "optimizer_stage_dict" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 def main():
     from dotenv import load_dotenv
@@ -97,8 +126,10 @@ def main():
     group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
     group.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
     parser.add_argument("--workers", type=int, default=0)
-    parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder")
-    parser.add_argument("--load-model", action="store_true", help="loads the model before training")
+    parser.add_argument("--load-model", help="loads the model specified")
+    parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder",
+                        default=CHECKPOINT_FOLDER)
+    parser.add_argument("--save-on-epoch", action="store_true", help="saves the model on every epoch")
     parser.add_argument("--freeze-demucs", action="store_true", help="does not train demucs")
     parser.add_argument("--freeze-extractor", action="store_true", help="freeze feature extractor layers from wav2vec")
 
@@ -179,7 +210,6 @@ def main():
     # KenLM
     alpha = 2.5  # LM Weight
     beta = 0.0  # LM Usage Reward
-    lm = kenlm.Model(TEXT_ARPA)
     word_lm_scorer = ctcdecode.WordKenLMScorer(TEXT_ARPA, alpha, beta)
     beam_lm_decoder = ctcdecode.BeamSearchDecoder(
         vocabulary,
@@ -188,9 +218,6 @@ def main():
         scorers=[word_lm_scorer],
         cutoff_prob=np.log(0.000001),
         cutoff_top_n=40)
-
-    def lm_postprocess(text):
-        return ' '.join([x if len(x) > 1 else "" for x in text.split()]).strip()
 
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
@@ -232,11 +259,22 @@ def main():
     config = wandb.config
 
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
+
     # Load the model
     model = DemucsWav2Vec()
-    if args.load_model:
-        checkpoint = torch.load(args.model_folder)
-        model.load_state_dict(checkpoint["model_state_dict"])
+
+    # Setup optimizer and LR scheduler
+    # Define the optimizer
+    if args.optimizer == 'sgd':
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    elif args.optimizer == 'adam':
+        optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    else:
+        raise RuntimeError("No Optimizer specified")
+
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+
+    criterion = torch.nn.CTCLoss()
 
     if args.freeze_demucs:
         for param in model.demucs.parameters():
@@ -248,25 +286,18 @@ def main():
 
     wandb.watch(model)
 
-    # Setup optimizer and LR scheduler
-    # Define the optimizer
-    if args.optimizer == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    elif args.optimizer == 'adam':
-        optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    else:
-        raise RuntimeError("No Optimizer specified")
-
     if args.load_model:
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-
-    criterion = torch.nn.CTCLoss()
+        print("Loading model from ", args.load_model)
+        load_model(args.load_model, model, optimizer)
 
     model, optimizer, train_loader, val_loader, test_loader, criterion = accelerator.prepare(
         model, optimizer, train_loader, val_loader, test_loader, criterion
     )
+
+    def handler(signum, frame):
+        save_model(accelerator, model, optimizer, folder=args.model_folder, train_loss=None, val_loss=None)
+
+    signal.signal(signal.SIGUSR1, handler)
 
     accelerator.print("Start Training with device", str(accelerator.device))
     losses = {'train': [], 'valid': []}
@@ -340,10 +371,14 @@ def main():
         # print progress
         accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
 
+        if args.model_folder and args.save_on_epoch:
+            save_model(accelerator, model, optimizer, args.save_model, np.mean(losses["train"]),
+                       np.mean(losses["valid"]), epoch)
+
     accelerator.print("Training finished")
 
     if args.model_folder:
-        save_model(model, optimizer, losses['train'][-1], args.model_folder)
+        save_model(accelerator, model, optimizer, args.model_folder, np.mean(losses["train"]), np.mean(losses["valid"]))
 
     if test_loader:
         model.eval()
@@ -367,14 +402,13 @@ def main():
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
                 beam_predicted = beam_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
                 kenlm_predicted = beam_lm_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
-                kenlm_predicted = [lm_postprocess(x) for x in kenlm_predicted]
                 for i, lyric in enumerate(lyrics):
                     wer = jiwer.wer(ground_truth[i], predicted[i])
                     beam_wer = jiwer.wer(ground_truth[i], predicted[i])
                     beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
                     wers.append((wer, beam_wer, beam_lm_wer))
-                    table.add_data(tokenizer.decode(lyric), predicted[i], wer*100, beam_predicted, beam_wer*100,
-                                   kenlm_predicted[i], beam_lm_wer*100)
+                    table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i], beam_wer * 100,
+                                   kenlm_predicted[i], beam_lm_wer * 100)
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers, axis=0)
