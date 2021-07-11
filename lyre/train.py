@@ -178,7 +178,8 @@ def main():
     DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
     DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
     TEXT_ARPA = (args.lm or (args.data_path / "text.arpa")).resolve(strict=True)
-    CHECKPOINT_FOLDER = (args.model_folder or (args.data_path / "checkpoint")).mkdir(parents=True, exist_ok=True).resolve(strict=True)
+    CHECKPOINT_FOLDER = (args.model_folder or (args.data_path / "checkpoint")).resolve()
+    CHECKPOINT_FOLDER.mkdir(parents=True, exist_ok=True)
 
     if args.blacklist_file:
         with open(args.blacklist_file) as f:
