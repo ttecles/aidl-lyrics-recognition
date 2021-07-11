@@ -1,20 +1,17 @@
-import sys
-import typing as t
 import argparse
-import functools
 import os
 import pathlib
 import signal
+import tempfile
 import time
+import typing as t
 
 import DALI as dali_code
 import ctcdecode
 import jiwer
-import kenlm
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch import nn
 import wandb
 from accelerate import Accelerator
 from torch import optim
@@ -26,8 +23,6 @@ from lyre.model import DemucsWav2Vec
 
 MAX_GPU_BATCH_SIZE = 16
 EVAL_BATCH_SIZE = 32
-TEXT_ARPA = os.environ["TEXT_ARPA"]
-CHECKPOINT_FOLDER = os.environ.get("CHECKPOINT_FOLDER")
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -68,11 +63,16 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
     return val_losses
 
 
-def save_model(model, optimizer: optim.Optimizer, folder, train_loss=None, val_loss=None, epoch=None,
+def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_loss=None, val_loss=None, epoch=None,
                accelerator: Accelerator = None):
-    os.makedirs(folder, exist_ok=True)
-    filename = folder + f"/model_{int(time.time())}.pt"
-    print(f"Saving checkpoint {filename}")
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+    except:
+        print(f"failed creating {folder}. Using temp dir")
+        folder = pathlib.Path(tempfile.gettempdir())
+
+    filename = folder / f"model_{int(time.time())}.pt"
+
     if accelerator:
         save_func = accelerator.save
         accelerator.wait_for_everyone()
@@ -103,46 +103,66 @@ def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None):
     if optimizer and "optimizer_stage_dict" in checkpoint:
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
+
 def main():
     from dotenv import load_dotenv
 
     load_dotenv()
     parser = argparse.ArgumentParser(prog="train")
-    parser.add_argument("DALI_DATA_PATH", type=pathlib.Path)
-    parser.add_argument("DALI_AUDIO_PATH", type=pathlib.Path)
-    parser.add_argument("--dali-gt-file", type=pathlib.Path)
-    parser.add_argument("--blacklist-file", type=pathlib.Path)
-    parser.add_argument("--audio-length", type=int, default=10)
-    parser.add_argument("--stride", type=int, default=None)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--batch", type=int, default=8)
-    parser.add_argument("--ncc", type=float, default=0, help="Train only with files with NCC score bigger than NCC")
-    parser.add_argument("--train-split", type=float, default=0.7, help="Train proprtion")
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--optimizer", choices=["adam", "sgd"], default="adam")
-    # parser.add_argument("--dropout", type=float, default=0.5)
-    group = parser.add_mutually_exclusive_group()
+    data = parser.add_argument_group('data arguments', 'data input information')
+    data.add_argument("--data-path", type=pathlib.Path, help="Path holding all the data.", default='./data')
+    data.add_argument("--dali-gt-file", type=pathlib.Path, help="DALI ground truth file.")
+    data.add_argument("--blacklist-file", type=pathlib.Path,
+                      help="All the identifiers listed in the file will be skipped from being loaded.")
+    data.add_argument("--lm", type=pathlib.Path,
+                      help="Trained Language Model file.",
+                      default="./data/text.arpa")
+
+    train_config = parser.add_argument_group('train config arguments', 'configuration of the training.')
+    train_config.add_argument("--ncc", type=float, default=0,
+                              help="Train only with files with NCC score bigger than NCC.")
+    train_config.add_argument("--train-split", type=float, default=0.7,
+                              help="Train proportion. Requires --ncc to be specified.")
+    train_config.add_argument("--audio-length", type=int, default=10,
+                              help="Audio length in seconds to pass to the model.")
+    train_config.add_argument("--stride", type=int, default=None, help="Stride used for spliting the audio songs.")
+    train_config.add_argument("--epochs", type=int, default=5, help="Number of epochs during training.")
+    train_config.add_argument("--batch", type=int, default=8, help="Batch size.")
+    train_config.add_argument("--optimizer", choices=["adam", "sgd"], default="adam", help="Type of optimizer.")
+    train_config.add_argument("--lr", type=float, default=1e-4, help="Optimizer learning rate.")
+    train_config.add_argument("--wd", type=float, default=1e-4, help="Optimizer weight decay.")
+    group = train_config.add_mutually_exclusive_group()
     group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
     group.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
-    parser.add_argument("--workers", type=int, default=0)
-    parser.add_argument("--load-model", help="loads the model specified")
-    parser.add_argument("--model-folder", help="if specified, model will be saved in every epoch into the folder",
-                        default=CHECKPOINT_FOLDER)
-    parser.add_argument("--save-on-epoch", action="store_true", help="saves the model on every epoch")
-    parser.add_argument("--freeze-demucs", action="store_true", help="does not train demucs")
-    parser.add_argument("--freeze-extractor", action="store_true", help="freeze feature extractor layers from wav2vec")
+    train_config.add_argument("--workers", type=int, default=0,
+                              help="Number of workers used for processing chunks, DataLoader and decoder.")
+
+    model_config = parser.add_argument_group('model config arguments', 'configuration of the model')
+    model_config.add_argument("--demucs", default="demucs", help="Name of the pretrained demucs.")
+    model_config.add_argument("--wav2vec", default="facebook/wav2vec2-base-960h",
+                              help="Name of the pretrained wav2vec.")
+    model_config.add_argument("--tokenizer", default="facebook/wav2vec2-base-960h",
+                              help="Name of the pretrained tokenizer.")
+    model_config.add_argument("--freeze-demucs", action="store_true", help="Does not compute gradient on demucs model")
+    model_config.add_argument("--freeze-extractor", action="store_true",
+                              help="Freeze feature extractor layers from wav2vec.")
+
+    model_io = parser.add_argument_group('model IO arguments', 'parameters related with load/save model')
+    model_io.add_argument("--load-model", type=pathlib.Path, help="Loads the specified model.")
+    model_io.add_argument("--model-folder", type=pathlib.Path,
+                          help="Folder where the model will be saved per epoch and when signaled with SIGUSR.",
+                          default="./data/checkpoints")
+    model_io.add_argument("--save-on-epoch", type=pathlib.Path, help="If specified, saves the model on every epoch.")
 
     args = parser.parse_args()
 
     batch_size = args.batch
-    # If the batch size is too big we use gradient accumulation
-    gradient_accumulation_steps = 1
-    if args.batch > MAX_GPU_BATCH_SIZE:
-        gradient_accumulation_steps = args.batch // MAX_GPU_BATCH_SIZE
-        batch_size = MAX_GPU_BATCH_SIZE
 
     # User input validation and transformation
+    DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
+    DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
+    TEXT_ARPA = args.lm.resolve(strict=True)
+
     if args.blacklist_file:
         with open(args.blacklist_file) as f:
             blacklist = f.read().splitlines()
@@ -161,14 +181,11 @@ def main():
         gt_file = ''
 
     print("Loading DALI dataset...")
-    dali_data = dali_code.get_the_DALI_dataset(str(args.DALI_DATA_PATH.resolve(strict=True)),
-                                               gt_file=gt_file,
-                                               skip=blacklist,
-                                               keep=[])
+    dali_data = dali_code.get_the_DALI_dataset(str(DALI_DATA_PATH), gt_file=gt_file, skip=blacklist, keep=[])
 
     if args.ncc:
-        dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
-                              length=audio_length, stride=stride, ncc=(args.ncc, None), workers=args.workers)
+        dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(args.ncc, None),
+                              workers=args.workers)
         train_dataset, validation_dataset, test_dataset = \
             random_split(dataset, [int(len(dataset) * args.train_split),
                                    int(len(dataset) * (1 - args.train_split) / 2),
@@ -176,23 +193,23 @@ def main():
                                        len(dataset) * (1 - args.train_split) / 2)],
                          generator=torch.Generator().manual_seed(42))
         assert len(train_dataset) > 0 and len(validation_dataset) > 0, "No data selected with these parameters"
-        print(f"Test DaliDataset: {len(test_dataset)} chunks")
-        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
+        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+        print(f"Test DaliDataset: {len(test_dataset)} chunks")
     else:
 
         print("Preparing Datasets...")
-        test_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
-                                   length=audio_length, stride=stride, ncc=(.94, None), workers=args.workers)
-        print(f"Test DaliDataset: {len(test_dataset)} chunks")
-        validation_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
-                                         length=audio_length, stride=stride, ncc=(.925, .94), workers=args.workers)
-        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
-        train_dataset = DaliDataset(dali_data, args.DALI_AUDIO_PATH.resolve(strict=True),
-                                    length=audio_length, stride=stride, ncc=(.8, .925), workers=args.workers)
+        train_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(.8, .925),
+                                    workers=args.workers)
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
+        validation_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride,
+                                         ncc=(.925, .94), workers=args.workers)
+        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+        test_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(.94, None),
+                                   workers=args.workers)
+        print(f"Test DaliDataset: {len(test_dataset)} chunks")
 
-    tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
     # Beam decoder
     vocab_dict = tokenizer.get_vocab()
@@ -210,7 +227,7 @@ def main():
     # KenLM
     alpha = 2.5  # LM Weight
     beta = 0.0  # LM Usage Reward
-    word_lm_scorer = ctcdecode.WordKenLMScorer(TEXT_ARPA, alpha, beta)
+    word_lm_scorer = ctcdecode.WordKenLMScorer(str(TEXT_ARPA), alpha, beta)
     beam_lm_decoder = ctcdecode.BeamSearchDecoder(
         vocabulary,
         num_workers=args.workers or 4,
@@ -238,7 +255,7 @@ def main():
         'epochs': args.epochs,
         'batch_size': args.batch,
         'learning_rate': args.lr,
-        'weight_decay': args.weight_decay,
+        'weight_decay': args.wd,
         'optimizer': args.optimizer,
         # 'dropout': args.dropout,
         'workers': args.workers,
@@ -254,25 +271,24 @@ def main():
         wandb.login(key=os.environ['WANDB_KEY'])
         os.environ["WANDB_SILENT"] = "true"
         os.environ["WANDB_MODE"] = "offline"
-    wandb.init(project='demucs+wav2vec', entity='aidl-lyrics-recognition',
-               config=config)
+    wandb.init(config=config)
     config = wandb.config
 
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
 
     # Load the model
-    model = DemucsWav2Vec()
+    model = DemucsWav2Vec(demucs=args.demucs, wav2vec=args.wav2vec)
 
     # Setup optimizer and LR scheduler
     # Define the optimizer
     if args.optimizer == 'sgd':
-        optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        optimizer: optim.Optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.wd)
     elif args.optimizer == 'adam':
         optimizer = optim.Adam(model.parameters(), lr=args.lr)
     else:
         raise RuntimeError("No Optimizer specified")
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     criterion = torch.nn.CTCLoss()
 
@@ -295,7 +311,7 @@ def main():
     )
 
     def handler(signum, frame):
-        save_model(accelerator, model, optimizer, folder=args.model_folder, train_loss=None, val_loss=None)
+        save_model(model, optimizer, folder=args.model_folder, train_loss=None, val_loss=None, accelerator=accelerator)
 
     signal.signal(signal.SIGUSR1, handler)
 
@@ -319,11 +335,11 @@ def main():
 
             accelerator.backward(loss)
 
-            wandb.log({"batch_train_loss": loss.item()})
             optimizer.step()
-            if scheduler:
-                scheduler.step(loss)
+            # if scheduler:
+            #     scheduler.step(loss)
 
+            wandb.log({"batch_train_loss": loss.item()})
             optimizer.zero_grad()
 
         predicted_ids = torch.argmax(logits, dim=-1)
@@ -372,13 +388,13 @@ def main():
         accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
 
         if args.model_folder and args.save_on_epoch:
-            save_model(accelerator, model, optimizer, args.save_model, np.mean(losses["train"]),
-                       np.mean(losses["valid"]), epoch)
+            save_model(model, optimizer, args.save_model, train_loss=np.mean(losses["train"]),
+                       val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator)
 
     accelerator.print("Training finished")
 
-    if args.model_folder:
-        save_model(accelerator, model, optimizer, args.model_folder, np.mean(losses["train"]), np.mean(losses["valid"]))
+    save_model(model, optimizer, args.model_folder, train_loss=np.mean(losses["train"]),
+               val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
     if test_loader:
         model.eval()
@@ -400,11 +416,11 @@ def main():
                 test_loss.append(loss.item())
                 ground_truth = tokenizer.batch_decode(lyrics)
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
-                beam_predicted = beam_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
-                kenlm_predicted = beam_lm_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
+                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach())
+                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach())
                 for i, lyric in enumerate(lyrics):
                     wer = jiwer.wer(ground_truth[i], predicted[i])
-                    beam_wer = jiwer.wer(ground_truth[i], predicted[i])
+                    beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
                     beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
                     wers.append((wer, beam_wer, beam_lm_wer))
                     table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i], beam_wer * 100,
