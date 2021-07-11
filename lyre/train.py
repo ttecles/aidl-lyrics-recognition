@@ -341,12 +341,11 @@ def main():
             waveform, lyrics = batch
             logits, voice = model(waveform)
             batch_size, input_lengths, classes = logits.size()
-            _, target_lengths = lyrics.size()
+            target_lengths = lyrics.count_nonzero(dim=1)
             log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
             loss = criterion(log_prob, lyrics,
                              input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
-                             target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
-                                                       dtype=torch.short))
+                             target_lengths=target_lengths)
             train_losses.append(loss.item())
 
             accelerator.backward(loss)
@@ -379,18 +378,17 @@ def main():
             with torch.no_grad():
                 logits, voice = model(waveform)
                 batch_size, input_lengths, classes = logits.size()
-                _, target_lengths = lyrics.size()
+                target_lengths = lyrics.count_nonzero(dim=1)
                 log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
                 loss = criterion(log_prob, lyrics,
                                  input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
                                                           dtype=torch.short),
-                                 target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
-                                                           dtype=torch.short))
+                                 target_lengths=target_lengths)
                 val_losses.append(loss.item())
 
         # Loss average
-        average_train_loss = np.mean(train_losses)
-        average_valid_loss = np.mean(val_losses)
+        average_train_loss = np.sum(train_losses)
+        average_valid_loss = np.sum(val_losses)
         losses['train'].append(average_train_loss)
         losses['valid'].append(average_valid_loss)
 
@@ -422,15 +420,14 @@ def main():
             columns=["lyric", "predicted", "wer", "beam predicted", "beam wer", "beam LM predicted", "beam LM wer"])
         with torch.no_grad():
             for waveforms, lyrics in test_loader:
-                logits, voice = model(waveforms)
+                logits, voice = model(waveform)
                 batch_size, input_lengths, classes = logits.size()
-                _, target_lengths = lyrics.size()
+                target_lengths = lyrics.count_nonzero(dim=1)
                 log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
                 loss = criterion(log_prob, lyrics,
                                  input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
                                                           dtype=torch.short),
-                                 target_lengths=torch.full(size=(batch_size,), fill_value=target_lengths,
-                                                           dtype=torch.short))
+                                 target_lengths=target_lengths)
                 test_loss.append(loss.item())
                 ground_truth = tokenizer.batch_decode(lyrics)
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
@@ -457,3 +454,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
