@@ -71,7 +71,7 @@ def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_lo
         print(f"failed creating {folder}. Using temp dir")
         folder = pathlib.Path(tempfile.gettempdir())
 
-    filename = folder / f"model_{int(time.time())}.pt"
+    filename = (folder / f"model_{int(time.time())}.pt").resolve()
 
     if accelerator:
         save_func = accelerator.save
@@ -204,12 +204,11 @@ def main():
     if args.ncc:
         dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(args.ncc, None),
                               workers=args.workers)
+        train_len = int(len(dataset) * args.train_split)
+        val_len = int((len(dataset) * (1 - args.train_split)) / 2)
+        test_len = len(dataset) - train_len - val_len
         train_dataset, validation_dataset, test_dataset = \
-            random_split(dataset, [int(len(dataset) * args.train_split),
-                                   int(len(dataset) * (1 - args.train_split) / 2),
-                                   len(dataset) - int(len(dataset) * args.train_split) - int(
-                                       len(dataset) * (1 - args.train_split) / 2)],
-                         generator=torch.Generator().manual_seed(42))
+            random_split(dataset, [train_len, val_len, test_len], generator=torch.Generator().manual_seed(42))
         assert len(train_dataset) > 0 and len(validation_dataset) > 0, "No data selected with these parameters"
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
         print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
@@ -433,9 +432,9 @@ def main():
                                                            dtype=torch.short))
                 test_loss.append(loss.item())
                 ground_truth = tokenizer.batch_decode(lyrics)
-                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
-                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach())
-                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach())
+                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
+                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
+                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
                 for i, lyric in enumerate(lyrics):
                     wer = jiwer.wer(ground_truth[i], predicted[i])
                     beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
