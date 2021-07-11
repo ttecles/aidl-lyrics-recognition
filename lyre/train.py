@@ -85,13 +85,31 @@ def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_lo
         model_state_dict = model.state_dict()
         optimizer_state_dict = optimizer.state_dict()
 
-    save_func({
-        'epoch': epoch,
-        'train_loss': train_loss,
-        'val_loss': val_loss,
-        'model_state_dict': model_state_dict,
-        'optimizer_state_dict': optimizer_state_dict
-    }, filename)
+    try:
+        save_func({
+            'epoch': epoch,
+            'train_loss': train_loss,
+            'val_loss': val_loss,
+            'model_state_dict': model_state_dict,
+            'optimizer_state_dict': optimizer_state_dict
+        }, str(filename))
+    except PermissionError:
+        try:
+            filename = pathlib.Path(tempfile.gettempdir()) / filename.name
+            print(f"Failed saving model. Trying into {filename}")
+            save_func({
+                'epoch': epoch,
+                'train_loss': train_loss,
+                'val_loss': val_loss,
+                'model_state_dict': model_state_dict,
+                'optimizer_state_dict': optimizer_state_dict
+            }, str(filename))
+        except PermissionError:
+            print(f"Unable to save model")
+        else:
+            print(f"Saved model in {filename}")
+    else:
+        print(f"Saved model in {filename}")
 
 
 def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None):
