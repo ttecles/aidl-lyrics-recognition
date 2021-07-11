@@ -324,8 +324,7 @@ def main():
         load_model(args.load_model, model, optimizer)
 
     model, optimizer, train_loader, val_loader, test_loader, criterion = accelerator.prepare(
-        model, optimizer, train_loader, val_loader, test_loader, criterion
-    )
+        model, optimizer, train_loader, val_loader, test_loader)
 
     def handler(signum, frame):
         save_model(model, optimizer, folder=CHECKPOINT_FOLDER, train_loss=None, val_loss=None, accelerator=accelerator)
