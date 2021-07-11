@@ -4,7 +4,9 @@ import pathlib
 import time
 
 import DALI as dali_code
+import ctcdecode
 import jiwer
+import kenlm
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -14,15 +16,12 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
 
-#import ctcdecode
-#from transformers import Wav2Vec2CTCTokenizer
-#import kenlm
-
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
 
 MAX_GPU_BATCH_SIZE = 16
 EVAL_BATCH_SIZE = 32
+TEXT_ARPA = os.environ["TEXT_ARPA"]
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -163,37 +162,35 @@ def main():
         print(f"Train DaliDataset: {len(train_dataset)} chunks")
 
     tokenizer = AutoTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
-    #CTCTokenizer = Wav2Vec2CTCTokenizer.from_pretrained("facebook/wav2vec2-base-960h")
-    
+
     # Beam decoder
-    #vocab_dict = CTCTokenizer.get_vocab()
-    #sort_vocab = sorted((value, key) for (key,value) in vocab_dict.items())
-    #vocab = [x[1].replace("|", " ") if x[1] not in CTCTokenizer.all_special_tokens else "_" for x in sort_vocab]
-    #vocabulary = vocab
-    #Beamsearch_decoder = ctcdecode.BeamSearchDecoder(
-    #vocabulary,
-    #num_workers=2,
-    #beam_width=128,
-    #cutoff_prob=np.log(0.000001),
-    #cutoff_top_n=40
-)
+    vocab_dict = tokenizer.get_vocab()
+    sort_vocab = sorted((value, key) for (key, value) in vocab_dict.items())
+    vocab = [x[1].replace("|", " ") if x[1] not in tokenizer.all_special_tokens else "_" for x in sort_vocab]
+    vocabulary = vocab
+    beam_decoder = ctcdecode.BeamSearchDecoder(
+        vocabulary,
+        num_workers=args.workers or 4,
+        beam_width=128,
+        cutoff_prob=np.log(0.000001),
+        cutoff_top_n=40
+    )
 
     # KenLM
-    #MyLM = kenlm.Model(text.arpa)
-    #alpha = 2.5 # LM Weight
-    #beta = 0.0 # LM Usage Reward
-    #word_lm_scorer = ctcdecode.WordKenLMScorer(text.arpa, alpha, beta) 
-    #Beam_lm_decoder = ctcdecode.BeamSearchDecoder(
-    #vocabulary,
-    #num_workers=2,
-    #beam_width=128,
-    #scorers=[word_lm_scorer],
-    #cutoff_prob=np.log(0.000001),
-    #cutoff_top_n=40
-)
-    #def lm_postprocess(text):
-        #return ' '.join([x if len(x) > 1 else "" for x in text.split()]).strip()
-    
+    alpha = 2.5  # LM Weight
+    beta = 0.0  # LM Usage Reward
+    lm = kenlm.Model(TEXT_ARPA)
+    word_lm_scorer = ctcdecode.WordKenLMScorer(TEXT_ARPA, alpha, beta)
+    beam_lm_decoder = ctcdecode.BeamSearchDecoder(
+        vocabulary,
+        num_workers=args.workers or 4,
+        beam_width=128,
+        scorers=[word_lm_scorer],
+        cutoff_prob=np.log(0.000001),
+        cutoff_top_n=40)
+
+    def lm_postprocess(text):
+        return ' '.join([x if len(x) > 1 else "" for x in text.split()]).strip()
 
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
@@ -299,6 +296,7 @@ def main():
             optimizer.zero_grad()
 
         predicted_ids = torch.argmax(logits, dim=-1)
+        predicted = tokenizer.decode(predicted_ids[0])
         wandb.log({"input": wandb.Audio(waveform[0].mean(0).cpu().numpy(),
                                         sample_rate=model.demucs.samplerate),
                    "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
@@ -307,7 +305,7 @@ def main():
                    <tr><td>{epoch}</td>
                    <td>{idx}</td>
                    <td>{tokenizer.decode(lyrics[0])}</td>
-                   <td>{tokenizer.batch_decode(predicted_ids)[0]}</td></tr>
+                   <td>{predicted}</td></tr>
                    </table>"""),
                    "epoch": epoch})
 
@@ -351,9 +349,11 @@ def main():
         model.eval()
         test_loss = []
         wers = []
+        table = wandb.Table(
+            columns=["lyric", "predicted", "wer", "beam predicted", "beam wer", "beam LM predicted", "beam LM wer"])
         with torch.no_grad():
-            for waveform, lyrics in test_loader:
-                logits, voice = model(waveform)
+            for waveforms, lyrics in test_loader:
+                logits, voice = model(waveforms)
                 batch_size, input_lengths, classes = logits.size()
                 _, target_lengths = lyrics.size()
                 log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
@@ -365,18 +365,26 @@ def main():
                 test_loss.append(loss.item())
                 ground_truth = tokenizer.batch_decode(lyrics)
                 predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1))
-                wers.append(jiwer.wer(ground_truth, predicted))
-                
-                #Beamsearch_predicted = Beamsearch_decoder.batch_decode(logits.detach().numpy())
-                
-                #KenLM_predicted = Beam_lm_decoder.batch_decode(logits.detach().numpy())
-                #KenLM_predicted= [lm_postprocess(x) for x in KenLM_predicted]
+                beam_predicted = beam_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
+                kenlm_predicted = beam_lm_decoder.decode_batch(F.softmax(logits, dim=-1).detach())
+                kenlm_predicted = [lm_postprocess(x) for x in kenlm_predicted]
+                for i, lyric in enumerate(lyrics):
+                    wer = jiwer.wer(ground_truth[i], predicted[i])
+                    beam_wer = jiwer.wer(ground_truth[i], predicted[i])
+                    beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
+                    wers.append((wer, beam_wer, beam_lm_wer))
+                    table.add_data(tokenizer.decode(lyric), predicted[i], wer*100, beam_predicted, beam_wer*100,
+                                   kenlm_predicted[i], beam_lm_wer*100)
 
         test_loss = np.mean(test_loss)
-        test_wer = np.mean(wers)
-        accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer * 100:.2f}% ')
-        wandb.run.summary['wer'] = test_wer*100
-        wandb.run.summary['loss'] = test_loss
+        test_wer = np.mean(wers, axis=0)
+        accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer[0] * 100:.2f}%, '
+                          f'Beam Wer: {test_wer[1] * 100:.2f}%, Beam LM Wer: {test_wer[2] * 100:.2f}%')
+        wandb.log({"predictions": table})
+        wandb.run.summary['wer'] = test_wer[0] * 100
+        wandb.run.summary['beam wer'] = test_wer[1] * 100
+        wandb.run.summary['beam lm wer'] = test_wer[2] * 100
+        wandb.run.summary['test_loss'] = test_loss
 
 
 if __name__ == "__main__":
