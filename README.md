@@ -193,7 +193,9 @@ Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofa
     
 <p ><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><iframe width="560" height="315" src="https://drive.google.com/uc?export=view&id=1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy" title="Audio" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></p>
     
-[audio](https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M)
+[audio](https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M) 
+[audio](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
+[audio](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy)
     
 <p align="right"><a href="#toc">To top</a></p>
     
