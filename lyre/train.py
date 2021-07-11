@@ -323,7 +323,7 @@ def main():
         print("Loading model from ", args.load_model)
         load_model(args.load_model, model, optimizer)
 
-    model, optimizer, train_loader, val_loader, test_loader, criterion = accelerator.prepare(
+    model, optimizer, train_loader, val_loader, test_loader = accelerator.prepare(
         model, optimizer, train_loader, val_loader, test_loader)
 
     def handler(signum, frame):
