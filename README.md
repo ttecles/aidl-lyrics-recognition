@@ -35,10 +35,9 @@ pip install -r requirements.txt
     1. [Experiment 1: First train with the full dataset](#experiment_1)
     2. [Experiment 2: Overfitting with one chunk](#experiment_2)
     3. [Experiment 3: Awesome experiment](#experiment_3)
-7. [The Google Cloud Instance](#gcinstance)
-8. [Conclusions](#conclusions)
-9. [Next Steps](#next_steps)
-10. [References](#references)
+7. [Conclusions](#conclusions)
+8. [Next Steps](#next_steps)
+9. [References](#references)
 
 ## 1. Introduction <a name="intro"></a>
 To this day few research is done in music lyrics recognition which is still considered a complex task. For its approach two subtasks can be determined:
@@ -92,7 +91,7 @@ _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, word
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 3. Working Environment <a name="working_env"></a>
-To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. For visualization of the results and to train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
+To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. For visualization of the results and to train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance with one V100 GPU on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL"><img src="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL" style="width: auto; max-width: 50%; height: 80px" title="Colab" /> <a href="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ"><img src="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ" style="width: auto; max-width: 50%; height: 80px" title="wandb" /> <a href="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF"><img src="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF" style="width: auto; max-width: 50%; height: 80px" title="GCloud" /> <a href="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z"><img src="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z" style="width: auto; max-width: 50%; height: 80px" title="pytorch" /></p >
 <p align="right"><a href="#toc">To top</a></p>
@@ -169,7 +168,7 @@ To our surprise we obtained initially a negative loss which could be explained b
     
 ### 6.1 Experiment 1: First train with the full dataset <a name="experiment_1"></a> 
     
-Parameter | Comments
+Step | Comments
 --------- | ------
 Hypothesis |  Our model will output awesome lyrics predictions.
 Set up | 
@@ -181,7 +180,7 @@ Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/mhujq
     
 ### 6.2 Experiment 2: Overfitting with one chunk <a name="experiment_2"></a>
     
-Parameter | Comments
+Step | Comments
 --------- | ------
 Hypothesis | Our model works if it is “able” to overfit.
 Set up | 
@@ -195,7 +194,7 @@ Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofa
     
 ### 6.3 Experiment 3: Awesome experiment <a name="experiment_3"></a>
     
-Parameter | Comments
+Step | Comments
 --------- | ------
 Hypothesis |  
 Set up | 
@@ -205,14 +204,11 @@ Links | [Run], [Report]
     
 <p align="right"><a href="#toc">To top</a></p>
 
-## 7. Google Cloud Instance <a name="gcinstance"></a>
-<p align="right"><a href="#toc">To top</a></p>
-
-## 8. Conclusions <a name="conclusions"></a>
+## 7. Conclusions <a name="conclusions"></a>
 As already mentioned before recognition tasks in music remain complex. Additionally, today as then the community laments a lack of well structured, aligned, large data sets for music information retrieval tasks. In consequence we needed to address the challenge to find an appropriate dataset and model architecture. Few literature for reference was available. We believe that our suggestion is a powerful solution for lyrics recognition. Though, its high computational cost in terms of time and money is evident and implementation remains to be optimized.
 <p align="right"><a href="#toc">To top</a></p>
 
-## 9. Next Steps <a name="next_steps"></a>
+## 8. Next Steps <a name="next_steps"></a>
 Further research could be done for:
 * melody extraction
 * chords transcription
@@ -221,7 +217,7 @@ Further research could be done for:
 * contribution to larger datasets of high quality
 <p align="right"><a href="#toc">To top</a></p>
 
-## 10. References <a name="references"></a>
+## 9. References <a name="references"></a>
 https://towardsdatascience.com/wav2vec-2-0-a-framework-for-self-supervised-learning-of-speech-representations-7d3728688cae
     
 https://ieeexplore.ieee.org/abstract/document/5179014
