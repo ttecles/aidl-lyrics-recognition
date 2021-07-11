@@ -141,10 +141,10 @@ def main():
                               help="Train only with files with NCC score bigger than NCC.")
     train_config.add_argument("--train-split", type=float, default=0.7,
                               help="Train proportion. Requires --ncc to be specified.")
-    train_config.add_argument("--audio-length", type=int, default=10,
+    train_config.add_argument("--audio-length", type=int, default=5,
                               help="Audio length in seconds to pass to the model.")
     train_config.add_argument("--stride", type=int, default=None, help="Stride used for spliting the audio songs.")
-    train_config.add_argument("--epochs", type=int, default=5, help="Number of epochs during training.")
+    train_config.add_argument("--epochs", type=int, default=15, help="Number of epochs during training.")
     train_config.add_argument("--batch", type=int, default=8, help="Batch size.")
     train_config.add_argument("--optimizer", choices=["adam", "sgd"], default="adam", help="Type of optimizer.")
     train_config.add_argument("--lr", type=float, default=1e-4, help="Optimizer learning rate.")
