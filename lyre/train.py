@@ -167,18 +167,19 @@ def main():
     model_io = parser.add_argument_group('model IO arguments', 'parameters related with load/save model')
     model_io.add_argument("--load-model", type=pathlib.Path, help="Loads the specified model.")
     model_io.add_argument("--model-folder", type=pathlib.Path,
-                          help="Folder where the model will be saved per epoch and when signaled with SIGUSR.",
-                          default="./data/checkpoints")
+                          help="Folder where the model will be saved per epoch and when signaled with SIGUSR.")
     model_io.add_argument("--save-on-epoch", type=pathlib.Path, help="If specified, saves the model on every epoch.")
 
     args = parser.parse_args()
 
     batch_size = args.batch
 
+    pathlib.Path().mkdir()
     # User input validation and transformation
     DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
     DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
     TEXT_ARPA = (args.lm or (args.data_path / "text.arpa")).resolve(strict=True)
+    CHECKPOINT_FOLDER = (args.model_folder or (args.data_path / "checkpoint")).mkdir(parents=True, exist_ok=True).resolve(strict=True)
 
     if args.blacklist_file:
         with open(args.blacklist_file) as f:
@@ -327,7 +328,7 @@ def main():
     )
 
     def handler(signum, frame):
-        save_model(model, optimizer, folder=args.model_folder, train_loss=None, val_loss=None, accelerator=accelerator)
+        save_model(model, optimizer, folder=CHECKPOINT_FOLDER, train_loss=None, val_loss=None, accelerator=accelerator)
 
     signal.signal(signal.SIGUSR1, handler)
 
@@ -404,12 +405,12 @@ def main():
         accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
 
         if args.model_folder and args.save_on_epoch:
-            save_model(model, optimizer, args.save_model, train_loss=np.mean(losses["train"]),
+            save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
                        val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator)
 
     accelerator.print("Training finished")
 
-    save_model(model, optimizer, args.model_folder, train_loss=np.mean(losses["train"]),
+    save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
                val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
 
