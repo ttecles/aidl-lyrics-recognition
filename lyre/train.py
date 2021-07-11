@@ -133,8 +133,7 @@ def main():
     data.add_argument("--blacklist-file", type=pathlib.Path,
                       help="All the identifiers listed in the file will be skipped from being loaded.")
     data.add_argument("--lm", type=pathlib.Path,
-                      help="Trained Language Model file.",
-                      default="./data/text.arpa")
+                      help="Trained Language Model file. if not specified it will try to find it in ./data/text.arpa")
 
     train_config = parser.add_argument_group('train config arguments', 'configuration of the training.')
     train_config.add_argument("--ncc", type=float, default=0,
@@ -179,7 +178,7 @@ def main():
     # User input validation and transformation
     DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
     DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
-    TEXT_ARPA = args.lm.resolve(strict=True)
+    TEXT_ARPA = (args.lm or args.data_path).resolve(strict=True)
 
     if args.blacklist_file:
         with open(args.blacklist_file) as f:
