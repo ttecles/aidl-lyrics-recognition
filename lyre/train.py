@@ -178,7 +178,7 @@ def main():
     # User input validation and transformation
     DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
     DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
-    TEXT_ARPA = (args.lm or args.data_path).resolve(strict=True)
+    TEXT_ARPA = (args.lm or (args.data_path / "text.arpa")).resolve(strict=True)
 
     if args.blacklist_file:
         with open(args.blacklist_file) as f:
