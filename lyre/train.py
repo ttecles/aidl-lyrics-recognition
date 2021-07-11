@@ -174,7 +174,6 @@ def main():
 
     batch_size = args.batch
 
-    pathlib.Path().mkdir()
     # User input validation and transformation
     DALI_DATA_PATH = (args.data_path / "dali").resolve(strict=True)
     DALI_AUDIO_PATH = (args.data_path / "audio").resolve(strict=True)
