@@ -475,7 +475,6 @@ def setup_run(args, config):
 
 
 if __name__ == "__main__":
-    print(sys.argv)
     args = parse_args()
 
     train(args)
