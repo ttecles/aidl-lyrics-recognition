@@ -256,7 +256,11 @@ class DaliDataset(Dataset):
             raise
         channels = waveform.size()[0]
 
-        waveform = julius.resample_frac(waveform, sample_rate, self.samplerate)
+        try:
+            waveform = julius.resample_frac(waveform, sample_rate, self.samplerate)
+        except:
+            print(chunk_meta)
+            raise
 
         start_silence = chunk_meta.audio_start - chunk_meta.init_sample
         end_silence = chunk_meta.end_sample - chunk_meta.audio_end

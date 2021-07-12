@@ -151,9 +151,12 @@ def parse_args():
     train_config.add_argument("--stride", type=int, default=None, help="Stride used for spliting the audio songs.")
     train_config.add_argument("--epochs", type=int, default=15, help="Number of epochs during training.")
     train_config.add_argument("--batch", type=int, default=8, help="Batch size.")
+    train_config.add_argument("--drop-last", action="store_true")
     train_config.add_argument("--optimizer", choices=["adam", "sgd"], default="adam", help="Type of optimizer.")
     train_config.add_argument("--lr", type=float, default=1e-4, help="Optimizer learning rate.")
     train_config.add_argument("--wd", type=float, default=1e-4, help="Optimizer weight decay.")
+
+
     group = train_config.add_mutually_exclusive_group()
     group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
     group.add_argument("--cpu", action="store_true", help="If passed, will train on the CPU.")
@@ -268,11 +271,11 @@ def train(args):
         return torch.stack(waveforms), lyrics_ids
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate,
-                              num_workers=args.workers)
+                              num_workers=args.workers, drop_last=args.drop_last)
     val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
-                            num_workers=args.workers)
+                            num_workers=args.workers, drop_last=args.drop_last)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
-                             num_workers=args.workers)
+                             num_workers=args.workers, drop_last=args.drop_last)
 
     config = {
         'audio_length': args.audio_length,
