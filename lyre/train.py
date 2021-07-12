@@ -465,6 +465,7 @@ def train(args):
 
 
 def setup_run(args, config):
+    run = None
     if args.log_all:
         run = wandb.init(group="DDP", config=config)
     elif args.local_rank == 0:
@@ -473,8 +474,6 @@ def setup_run(args, config):
         if 'WANDB_KEY' in os.environ:
             wandb.login(key=os.environ['WANDB_KEY'])
             run = wandb.init(config=config)
-    else:
-        run = None
     return run
 
 
