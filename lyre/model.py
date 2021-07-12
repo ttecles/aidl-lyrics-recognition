@@ -41,7 +41,3 @@ class DemucsWav2Vec(nn.Module):
         wav2vec_output = self.wav2vec(input_values, labels=labels)
 
         return wav2vec_output, output_voice_mono_sr
-
-
-
-

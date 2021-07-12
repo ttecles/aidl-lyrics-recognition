@@ -138,7 +138,7 @@ def _process_file(entry, samplerate, length, stride):
                 text.upper(),
             )
             if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end or not text \
-               or chunk_end - chunk_start < MIN_LENGTH * samplerate:
+                or chunk_end - chunk_start < MIN_LENGTH * samplerate:
                 # print("Invalid Chunk: ", chunk)
                 pass
             else:

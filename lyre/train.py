@@ -15,13 +15,13 @@ import torch
 import torch.nn.functional as F
 import wandb
 from accelerate import Accelerator
+from dotenv import load_dotenv
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
-from dotenv import load_dotenv
 
 load_dotenv()
 
