@@ -137,7 +137,7 @@ def parse_args():
 
     train_config = parser.add_argument_group('train config arguments', 'configuration of the training.')
     # Used for `distribution.launch`
-    train_config.add_argument("--local_rank", type=int, default=-1, metavar="N", help="Local process rank.")
+    train_config.add_argument("--node_rank", type=int, default=-1, metavar="N", help="Local process rank.")
     train_config.add_argument("--log_all", action="store_true",
                               help="Flag to log in all processes, otherwise only in rank0.", )
     train_config.add_argument("--ncc", type=float, default=0,
@@ -461,7 +461,7 @@ def train(args):
 def setup_run(args, config):
     if args.log_all:
         run = wandb.init(group="DDP", config=config)
-    elif args.local_rank == 0:
+    elif args.node_rank == 0:
         run = wandb.init(config=config)
     else:
         if 'WANDB_KEY' in os.environ:
