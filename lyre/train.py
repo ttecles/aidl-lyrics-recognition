@@ -387,8 +387,8 @@ def main():
                 val_losses.append(loss.item())
 
         # Loss average
-        average_train_loss = np.sum(train_losses)
-        average_valid_loss = np.sum(val_losses)
+        average_train_loss = np.mean(train_losses)
+        average_valid_loss = np.mean(val_losses)
         losses['train'].append(average_train_loss)
         losses['valid'].append(average_valid_loss)
 
