@@ -392,10 +392,7 @@ def train(args):
             with torch.no_grad():
                 lyrics[lyrics == 0] = -100
                 output, voice = model(waveforms, labels=lyrics)
-                lyrics[lyrics == -100] = 0
-            output = accelerator.gather(output)
-            lyrics = accelerator.gather(lyrics)
-            val_losses.append(output.loss.item())
+            val_losses.append(accelerator.gather(output.loss).item())
 
         # Loss average
         average_train_loss = np.mean(train_losses)
@@ -436,15 +433,15 @@ def train(args):
                     lyrics[lyrics == 0] = -100
                     output, voice = model(waveforms, labels=lyrics)
                     lyrics[lyrics == -100] = 0
-                output = accelerator.gather(output)
+                logits = accelerator.gather(output.logits)
                 lyrics = accelerator.gather(lyrics)
                 test_loss.append(output.loss.item())
 
                 # WER calculation
                 ground_truth = tokenizer.batch_decode(lyrics)
-                predicted = tokenizer.batch_decode(torch.argmax(output.logits, dim=-1).detach().cpu())
-                beam_predicted = beam_decoder.decode_batch(F.log_softmax(output.logits, dim=-1).detach().cpu())
-                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(output.logits, dim=-1).detach().cpu())
+                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
+                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
+                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
                 for i, lyric in enumerate(lyrics):
                     wer = jiwer.wer(ground_truth[i], predicted[i])
                     beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
