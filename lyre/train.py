@@ -26,45 +26,6 @@ from lyre.model import DemucsWav2Vec
 
 load_dotenv()
 
-
-def accuracy(predicted_batch, ground_truth_batch):
-    pred = predicted_batch.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-    acum = pred.eq(ground_truth_batch.view_as(pred)).sum().item()
-    return acum
-
-
-def convert_id_to_string(tokenizer, predicted_ids):
-    predicted_tokens = tokenizer.convert_ids_to_tokens(predicted_ids.squeeze())
-    predicted_string = ''
-    for token in predicted_tokens:
-        if token == '<pad>':
-            pass
-        elif token == '|':
-            predicted_string += ' '
-        else:
-            predicted_string += token
-
-    return ' '.join(predicted_string.split())
-
-
-def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
-    model.eval()
-
-    val_losses = []
-    with torch.no_grad():
-        for waveform, lyrics in data:
-            output = model(waveform)
-            batch, input_lengths, classes = output.size()
-            _, target_lengths = lyrics.size()
-            loss = criterion(output, lyrics,
-                             input_lengths=torch.full(size=(batch,), fill_value=input_lengths, dtype=torch.long),
-                             target_lengths=torch.full(size=(batch,), fill_value=target_lengths, dtype=torch.long)
-                             )
-
-            val_losses.append(float(loss))
-    return val_losses
-
-
 def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_loss=None, val_loss=None, epoch=None,
                accelerator: Accelerator = None, name=None):
     name = name or f"model_{int(time.time())}.pt"
