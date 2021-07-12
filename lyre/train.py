@@ -306,6 +306,8 @@ def train(args):
                                               ctc_loss_reduction="mean",
                                               pad_token_id=tokenizer.pad_token_id))
 
+    demucs_samplerate = model.demucs.samplerate
+    wav2vec_samplerate = model.sr_wav2vec
     # Setup optimizer and LR scheduler
     # Define the optimizer
     if args.optimizer == 'sgd':
@@ -368,8 +370,8 @@ def train(args):
         predicted = tokenizer.decode(predicted_ids[0])
         if do_log:
             run.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
-                                          sample_rate=model.demucs.samplerate),
-                     "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
+                                          sample_rate=demucs_samplerate),
+                     "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=wav2vec_samplerate),
                      "predictions": wandb.Html(f"""<table style="width:100%">
                        <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
                        <tr><td>{epoch}</td>
