@@ -31,7 +31,11 @@ class DemucsWav2Vec(nn.Module):
         output_voice_mono = voice.mean(dim=1)
 
         # change sample rate:
-        output_voice_mono_sr = self.resample(output_voice_mono)
+        try:
+            output_voice_mono_sr = self.resample(output_voice_mono)
+        except:
+            print(output_voice_mono.size())
+            raise
 
         # Wav2Vec processor function:
         input_values = (output_voice_mono_sr - output_voice_mono_sr.mean(1, keepdim=True)) / torch.sqrt(
