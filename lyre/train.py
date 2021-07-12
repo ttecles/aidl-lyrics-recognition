@@ -262,7 +262,7 @@ def train(args):
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
         waveforms, lyrics = zip(*batch)
-        lyrics_ids = tokenizer(lyrics, return_tensors='pt', padding=True)['input_ids']
+        lyrics_ids = tokenizer(lyrics, return_tensors='pt', padding='longest')['input_ids']
         return torch.stack(waveforms), lyrics_ids
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate,
@@ -297,7 +297,10 @@ def train(args):
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
 
     # Load the model
-    model = DemucsWav2Vec(demucs=args.demucs, wav2vec=args.wav2vec)
+    model = DemucsWav2Vec(demucs=args.demucs, wav2vec=args.wav2vec,
+                          wav2vec_kwargs=dict(gradient_checkpointing=True,
+                                              ctc_loss_reduction="mean",
+                                              pad_token_id=tokenizer.pad_token_id))
 
     # Setup optimizer and LR scheduler
     # Define the optimizer
@@ -309,8 +312,6 @@ def train(args):
         raise RuntimeError("No Optimizer specified")
 
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
-
-    criterion = torch.nn.CTCLoss()
 
     if args.freeze_demucs:
         for param in model.demucs.parameters():
@@ -344,27 +345,22 @@ def train(args):
         train_losses = []
         for idx, batch in enumerate(train_loader):
             waveforms, lyrics = batch
-            logits, voice = model(waveforms)
-            batch_size, input_lengths, classes = logits.size()
-            target_lengths = lyrics.count_nonzero(dim=1)
-            log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
-            loss = criterion(log_prob, lyrics,
-                             input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths, dtype=torch.short),
-                             target_lengths=target_lengths)
+            lyrics[lyrics == 0] = -100
+            output, voice = model(waveforms, labels=lyrics)
+            lyrics[lyrics == -100] = 0
+            train_losses.append(output.loss.item())
 
-            train_losses.append(loss.item())
-
-            accelerator.backward(loss)
+            accelerator.backward(output.loss)
 
             optimizer.step()
             # if scheduler:
             #     scheduler.step(loss)
 
             if do_log:
-                run.log({"batch_train_loss": loss.item()})
+                run.log({"batch_train_loss": train_losses[-1]})
             optimizer.zero_grad()
 
-        predicted_ids = torch.argmax(logits, dim=-1)
+        predicted_ids = torch.argmax(output.logits, dim=-1)
         predicted = tokenizer.decode(predicted_ids[0])
         if do_log:
             run.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
@@ -383,17 +379,12 @@ def train(args):
         model.eval()
         for waveforms, lyrics in val_loader:
             with torch.no_grad():
-                logits, voice = model(waveforms)
-            batch_size, input_lengths, classes = logits.size()
-            target_lengths = lyrics.count_nonzero(dim=1)
-            log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
-            log_prob = accelerator.gather(log_prob)
+                lyrics[lyrics == 0] = -100
+                output, voice = model(waveforms, labels=lyrics)
+                lyrics[lyrics == -100] = 0
+            output = accelerator.gather(output)
             lyrics = accelerator.gather(lyrics)
-            loss = criterion(log_prob, lyrics,
-                             input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
-                                                      dtype=torch.short),
-                             target_lengths=target_lengths)
-            val_losses.append(loss.item())
+            val_losses.append(output.loss.item())
 
         # Loss average
         average_train_loss = np.mean(train_losses)
@@ -431,23 +422,18 @@ def train(args):
         with torch.no_grad():
             for waveforms, lyrics in test_loader:
                 with torch.no_grad():
-                    logits, voice = model(waveforms)
-                batch_size, input_lengths, classes = logits.size()
-                log_prob = F.log_softmax(logits, dim=-1).permute(1, 0, 2)
-                log_prob = accelerator.gather(log_prob)
+                    lyrics[lyrics == 0] = -100
+                    output, voice = model(waveforms, labels=lyrics)
+                    lyrics[lyrics == -100] = 0
+                output = accelerator.gather(output)
                 lyrics = accelerator.gather(lyrics)
-                target_lengths = lyrics.count_nonzero(dim=1)
-                loss = criterion(log_prob, lyrics,
-                                 input_lengths=torch.full(size=(batch_size,), fill_value=input_lengths,
-                                                          dtype=torch.short),
-                                 target_lengths=target_lengths)
-                test_loss.append(loss.item())
+                test_loss.append(output.loss.item())
 
                 # WER calculation
                 ground_truth = tokenizer.batch_decode(lyrics)
-                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
-                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
-                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
+                predicted = tokenizer.batch_decode(torch.argmax(output.logits, dim=-1).detach().cpu())
+                beam_predicted = beam_decoder.decode_batch(F.log_softmax(output.logits, dim=-1).detach().cpu())
+                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(output.logits, dim=-1).detach().cpu())
                 for i, lyric in enumerate(lyrics):
                     wer = jiwer.wer(ground_truth[i], predicted[i])
                     beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])

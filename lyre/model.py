@@ -8,14 +8,14 @@ from transformers import Wav2Vec2ForCTC
 
 
 class DemucsWav2Vec(nn.Module):
-    def __init__(self, demucs="demucs", wav2vec="facebook/wav2vec2-base-960h", sr_wav2vec=16000):
+    def __init__(self, demucs="demucs", wav2vec="facebook/wav2vec2-base-960h", wav2vec_kwargs=None, sr_wav2vec=16000):
         super().__init__()
         self.demucs = load_pretrained(demucs)
         self.sr_wav2vec = sr_wav2vec
         self.resample = julius.resample.ResampleFrac(self.demucs.samplerate, self.sr_wav2vec)
-        self.wav2vec = Wav2Vec2ForCTC.from_pretrained(wav2vec)
+        self.wav2vec = Wav2Vec2ForCTC.from_pretrained(wav2vec, **(wav2vec_kwargs or {}))
 
-    def forward(self, mix):
+    def forward(self, mix, labels=None):
         batch, channels, length = mix.shape
         mix_chunk = tensor_chunk(mix)
         valid_length = self.demucs.valid_length(length)
@@ -38,9 +38,9 @@ class DemucsWav2Vec(nn.Module):
             output_voice_mono_sr.var(1, keepdim=True) + 1e-5)
 
         # Wav2Vec:
-        logits = self.wav2vec(input_values).logits
+        wav2vec_output = self.wav2vec(input_values, labels=labels)
 
-        return logits, output_voice_mono_sr
+        return wav2vec_output, output_voice_mono_sr
 
 
 
