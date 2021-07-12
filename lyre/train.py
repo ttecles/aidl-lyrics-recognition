@@ -5,6 +5,7 @@ import signal
 import tempfile
 import time
 import typing as t
+import uuid
 
 import DALI as dali_code
 import ctcdecode
@@ -64,14 +65,16 @@ def eval_single_epoch(data: DataLoader, model, criterion, accelerator):
 
 
 def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_loss=None, val_loss=None, epoch=None,
-               accelerator: Accelerator = None):
+               accelerator: Accelerator = None, name=None):
+    name = name or f"model_{int(time.time())}.pt"
+
     try:
         folder.mkdir(parents=True, exist_ok=True)
     except:
         print(f"failed creating {folder}. Using temp dir")
         folder = pathlib.Path(tempfile.gettempdir())
 
-    filename = (folder / f"model_{int(time.time())}.pt").resolve()
+    filename = (folder / name).resolve()
 
     if accelerator:
         save_func = accelerator.save
@@ -169,7 +172,7 @@ def parse_args():
     model_io.add_argument("--load-model", type=pathlib.Path, help="Loads the specified model.")
     model_io.add_argument("--model-folder", type=pathlib.Path,
                           help="Folder where the model will be saved per epoch and when signaled with SIGUSR.")
-    model_io.add_argument("--save-on-epoch", type=pathlib.Path, help="If specified, saves the model on every epoch.")
+    model_io.add_argument("--save-on-epoch", action="store_true", help="If specified, saves the model on every epoch.")
 
     return parser.parse_args()
 
@@ -334,6 +337,7 @@ def train(args):
 
     accelerator.print("Start Training with device", str(accelerator.device))
     losses = {'train': [], 'valid': []}
+    model_dump_name = f"model_epoch_{str(uuid.uuid4()).split('-')[0]}.pt"
     for epoch in range(args.epochs):
         start_time = time.time()
         model.train()
@@ -409,12 +413,13 @@ def train(args):
 
         if args.model_folder and args.save_on_epoch:
             save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
-                       val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator)
+                       val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator, name=model_dump_name)
 
     accelerator.print("Training finished")
 
-    save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
-               val_loss=np.mean(losses["valid"]), accelerator=accelerator)
+    if not (args.model_folder and args.save_on_epoch):
+        save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
+                   val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
     if test_loader:
         accelerator.print("Testing the model...")
