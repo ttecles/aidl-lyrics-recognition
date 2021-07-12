@@ -392,7 +392,7 @@ def train(args):
             with torch.no_grad():
                 lyrics[lyrics == 0] = -100
                 output, voice = model(waveforms, labels=lyrics)
-            val_losses.append(accelerator.gather(output.loss).item())
+            val_losses.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
 
         # Loss average
         average_train_loss = np.mean(train_losses)
@@ -435,7 +435,7 @@ def train(args):
                     lyrics[lyrics == -100] = 0
                 logits = accelerator.gather(output.logits)
                 lyrics = accelerator.gather(lyrics)
-                test_loss.append(output.loss.item())
+                test_loss.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
 
                 # WER calculation
                 ground_truth = tokenizer.batch_decode(lyrics)
