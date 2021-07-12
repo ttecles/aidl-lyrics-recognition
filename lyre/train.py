@@ -20,9 +20,9 @@ from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
 from lyre.model import DemucsWav2Vec
+from dotenv import load_dotenv
 
-MAX_GPU_BATCH_SIZE = 16
-EVAL_BATCH_SIZE = 32
+load_dotenv()
 
 
 def accuracy(predicted_batch, ground_truth_batch):
@@ -122,10 +122,7 @@ def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None):
         optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
 
-def main():
-    from dotenv import load_dotenv
-
-    load_dotenv()
+def parse_args():
     parser = argparse.ArgumentParser(prog="train")
     data = parser.add_argument_group('data arguments', 'data input information')
     data.add_argument("--data-path", type=pathlib.Path, help="Path holding all the data.", default='./data')
@@ -136,6 +133,10 @@ def main():
                       help="Trained Language Model file. if not specified it will try to find it in ./data/text.arpa")
 
     train_config = parser.add_argument_group('train config arguments', 'configuration of the training.')
+    # Used for `distribution.launch`
+    train_config.add_argument("--local_rank", type=int, default=-1, metavar="N", help="Local process rank.")
+    train_config.add_argument("--log_all", action="store_true",
+                              help="Flag to log in all processes, otherwise only in rank0.", )
     train_config.add_argument("--ncc", type=float, default=0,
                               help="Train only with files with NCC score bigger than NCC.")
     train_config.add_argument("--train-split", type=float, default=0.7,
@@ -170,8 +171,10 @@ def main():
                           help="Folder where the model will be saved per epoch and when signaled with SIGUSR.")
     model_io.add_argument("--save-on-epoch", type=pathlib.Path, help="If specified, saves the model on every epoch.")
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def train(args):
     batch_size = args.batch
 
     # User input validation and transformation
@@ -283,13 +286,10 @@ def main():
         'test_len': len(test_dataset)
     }
 
-    # WANDB configuration
-    if 'WANDB_KEY' in os.environ:
-        wandb.login(key=os.environ['WANDB_KEY'])
-        os.environ["WANDB_SILENT"] = "true"
-        os.environ["WANDB_MODE"] = "offline"
-    wandb.init(config=config)
-    config = wandb.config
+    run = setup_run(args, config)
+    # Check to see if local_rank is 0
+    is_master = args.local_rank == 0
+    do_log = run is not None
 
     accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
 
@@ -317,7 +317,8 @@ def main():
         model.wav2vec.freeze_feature_extractor()
         # model.wav2vec.wav2vec2.feature_projection.requires_grad_(False)
 
-    wandb.watch(model)
+    if is_master:
+        wandb.watch(model)
 
     if args.load_model:
         print("Loading model from ", args.load_model)
@@ -333,7 +334,7 @@ def main():
 
     accelerator.print("Start Training with device", str(accelerator.device))
     losses = {'train': [], 'valid': []}
-    for epoch in range(config.epochs):
+    for epoch in range(args.epochs):
         start_time = time.time()
         model.train()
         train_losses = []
@@ -355,22 +356,24 @@ def main():
             # if scheduler:
             #     scheduler.step(loss)
 
-            wandb.log({"batch_train_loss": loss.item()})
+            if do_log:
+                run.log({"batch_train_loss": loss.item()})
             optimizer.zero_grad()
 
         predicted_ids = torch.argmax(logits, dim=-1)
         predicted = tokenizer.decode(predicted_ids[0])
-        wandb.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
-                                        sample_rate=model.demucs.samplerate),
-                   "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
-                   "predictions": wandb.Html(f"""<table style="width:100%">
-                   <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
-                   <tr><td>{epoch}</td>
-                   <td>{idx}</td>
-                   <td>{tokenizer.decode(lyrics[0])}</td>
-                   <td>{predicted}</td></tr>
-                   </table>"""),
-                   "epoch": epoch})
+        if do_log:
+            run.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
+                                          sample_rate=model.demucs.samplerate),
+                     "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=model.sr_wav2vec),
+                     "predictions": wandb.Html(f"""<table style="width:100%">
+                       <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
+                       <tr><td>{epoch}</td>
+                       <td>{idx}</td>
+                       <td>{tokenizer.decode(lyrics[0])}</td>
+                       <td>{predicted}</td></tr>
+                       </table>"""),
+                     "epoch": epoch})
 
         val_losses = []
         model.eval()
@@ -394,7 +397,8 @@ def main():
         losses['train'].append(average_train_loss)
         losses['valid'].append(average_valid_loss)
 
-        wandb.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss})
+        if do_log:
+            run.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss})
 
         secs = int(time.time() - start_time)
         mins = secs / 60
@@ -411,7 +415,6 @@ def main():
 
     save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
                val_loss=np.mean(losses["valid"]), accelerator=accelerator)
-
 
     if test_loader:
         accelerator.print("Testing the model...")
@@ -452,13 +455,32 @@ def main():
         test_wer = np.mean(wers, axis=0)
         accelerator.print(f'Test set: Average loss: {test_loss:.4f}, Wer: {test_wer[0] * 100:.2f}%, '
                           f'Beam Wer: {test_wer[1] * 100:.2f}%, Beam LM Wer: {test_wer[2] * 100:.2f}%')
-        wandb.log({"predictions": table})
-        wandb.run.summary['wer'] = test_wer[0] * 100
-        wandb.run.summary['beam wer'] = test_wer[1] * 100
-        wandb.run.summary['beam lm wer'] = test_wer[2] * 100
-        wandb.run.summary['test_loss'] = test_loss
+        if do_log:
+            run.log({"predictions": table})
+            run.summary['wer'] = test_wer[0] * 100
+            run.summary['beam wer'] = test_wer[1] * 100
+            run.summary['beam lm wer'] = test_wer[2] * 100
+            run.summary['test_loss'] = test_loss
+
+        wandb.finish()
+
+
+def setup_run(args, config):
+    if args.log_all:
+        run = wandb.init(group="DDP", config=config)
+    elif args.local_rank == 0:
+        run = wandb.init(config=config)
+    else:
+        if 'WANDB_KEY' in os.environ:
+            wandb.login(key=os.environ['WANDB_KEY'])
+            run = wandb.init(config=config)
+        else:
+            run = None
+
+    return run
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
 
+    train(args)
