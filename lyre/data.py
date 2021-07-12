@@ -45,6 +45,9 @@ entry.annotations --> {'annot': {'the annotations themselves'},
                  'index': 0} # link with the upper level. For example, index 0 at the 'words' level means that that particular word below to first line ([0]). The paragraphs level has no index key.
 """
 
+MIN_LENGTH = 2  # in seconds
+DEFAULT_SAMPLE_RATE = 44100
+
 
 @dataclass
 class Chunk:
@@ -134,15 +137,13 @@ def _process_file(entry, samplerate, length, stride):
                 audio_end,
                 text.upper(),
             )
-            if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end or not text:
+            if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end or not text \
+               or chunk_end - chunk_start < MIN_LENGTH * samplerate:
                 # print("Invalid Chunk: ", chunk)
                 pass
             else:
                 chunk_map.append(chunk)
     return chunk_map
-
-
-DEFAULT_SAMPLE_RATE = 44100
 
 
 class DaliDataset(Dataset):
@@ -198,7 +199,8 @@ class DaliDataset(Dataset):
     def _load_data(self):
         if not self.dali_data:
             print("Loading DALI data from ", self.dali_data_path)
-            self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, gt_file=self.gt_file or '', skip=self.blacklist)
+            self.dali_data = dali_code.get_the_DALI_dataset(self.dali_data_path, gt_file=self.gt_file or '',
+                                                            skip=self.blacklist)
 
         # print("Generating dataset information")
         files = list(self.dali_audio_path.glob("*.mp3"))
