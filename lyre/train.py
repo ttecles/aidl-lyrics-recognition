@@ -14,7 +14,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
-from accelerate import Accelerator
+from accelerate import Accelerator, DistributedDataParallelKwargs
 from dotenv import load_dotenv
 from torch import optim
 from torch.utils.data import DataLoader, random_split
@@ -294,11 +294,13 @@ def train(args):
     is_master = args.local_rank == 0
     do_log = run is not None
 
-    accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu)
+    handler = DistributedDataParallelKwargs()
+    handler.find_unused_parameters = True
+    accelerator = Accelerator(fp16=args.fp16, cpu=args.cpu, kwargs_handlers=[handler])
 
     # Load the model
     model = DemucsWav2Vec(demucs=args.demucs, wav2vec=args.wav2vec,
-                          wav2vec_kwargs=dict(gradient_checkpointing=True,
+                          wav2vec_kwargs=dict(gradient_checkpointing=False,
                                               ctc_loss_reduction="mean",
                                               pad_token_id=tokenizer.pad_token_id))
 
