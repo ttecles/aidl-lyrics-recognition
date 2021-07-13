@@ -98,7 +98,7 @@ To develop the base model with 395 MM parameters, we used [Google Colab](https:/
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 4. General Architecture <a name="architecture"></a>
-Few research is done so far for music lyrics recognition in general and mostly spectrograms in combination with CNNs are used. In the context of this project we explore the possibility of a highly performing alternative by combining two strong models: the Demucs model for the source separation task in combination with a Wav2Vec model for the transcription task. Demucs is currently the best performing model for source separation based on waveform and so far the only waveform-based model which can compete with more commonly used spectrogram-based models. Wav2Vec is considered the current state-of-the-art model for automatic speech recognition. Additionally, we implemented KenLM as a language model on top to improve the output of the transcription task.
+Few research is done so far for music lyrics recognition in general and mostly spectrograms in combination with CNNs are used. In the context of this project we explore the possibility of a highly performing alternative by combining two strong models: the Demucs model for the source separation task in combination with a Wav2Vec model for the transcription task. Demucs is currently the best performing model for source separation based on waveform and so far the only waveform-based model which can compete with more commonly used spectrogram-based models. Wav2Vec is considered the current state-of-the-art model for automatic speech recognition. Additionally, we implemented KenLM as a language model on top to improve the output of the transcription task. As final model implementation we opted for the concatenation of a pretrained Demucs and pretrained Wav2Vec model to perform end-to-end training. The loss will be computed comparing the ground truth lyrics against the lyrics obtained in the Wav2Vec output. Demucs is built of a convolutional encoder plus LSTM plus convolutional decoder. Wav2Vec is an unsupervised model with convolutional layers and a transformer working on character level. The final part of the Wav2Vec model applies a CTC algorithm (Connectionist Temporal Classification). This CTC algorithm helps to delete repeated characters in the prediction as the Wav2Vec model is predicting a character every few milliseconds.
 
 ![image](https://drive.google.com/uc?export=view&id=1LGxdJUxxW76P5Kx58ALWSDbY23WUntNJ)
     
@@ -107,28 +107,12 @@ Few research is done so far for music lyrics recognition in general and mostly s
 ![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)    
     _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture and the KenLM language model on top_
 <p align="right"><a href="#toc">To top</a></p>
-
-### 4.1 Main Hyperparameters <a name="main_hyperparameters"></a>
     
-For first training we applied standard values for our model hyperparameters, that is parameters which are proven to deliver first good results such as Adam optimizer and a learning rate of 0.0001. 
-    
-| Parameter | Demucs  | Wav2Vec  | KenLM (n-gram)
-| ------------ | ------------ | ------------- | ----
-| Optimizer | Adam | Adam |  
-| Learning rate | 0.0001 | 0.0001 |
-| Weight decay | 0.0001 | 0.0001 |
-| Audio length | 10 sec. | 10 sec. |
-| Batch Size |   |   |  
-| Epochs |   |   |  
-   
-<p align="right"><a href="#toc">To top</a></p>
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>
+    _Figure 5: CTC loss: architecture and its calculation_
 
 ### 4.2 Evaluation Metrics <a name="metrics"></a>
-For training and validation of Demucs and Wav2Vec model we opted for the CTC loss function (Connectionist Temporal Classification). CTC loss is most commonly used for speech recognition tasks, but can be applied as well to our sequence problem of audio recognition. The input sequence can be a spectrogram or, like in our case, in waveform. The sequence input is then fed into a RNN model, like our Demucs LSTM model. For KenLM we applied WER loss. The word error rate is obtained as a percentage dividing the total of wrongly predicted word (that is insertions, deletions and substitutions) by the total of the documents words.
-
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>
-    
-_Figure 5: CTC loss: architecture and its calculation_
+For KenLM we applied WER loss. The word error rate is obtained as a percentage dividing the total of wrongly predicted word (that is insertions, deletions and substitutions) by the total of the documents words. 
     
 ![image](https://drive.google.com/uc?export=view&id=1N4Ecf8kh_TDR_IatFsqR6TQBTHqyqQ86)      
 
