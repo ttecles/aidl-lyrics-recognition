@@ -8,15 +8,7 @@ Advisor: [Gerard I. Gállego](https://www.linkedin.com/in/gerard-gallego/)
 
 GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://github.com/ttecles/aidl-lyrics-recognition)
 
-To install the project we recommend using a virtual environment (venv). Steps to follow:
-
-```bash 
-sudo apt update
-sudo apt install python3 python3-venv python3-dev
-python3 -m venv .venv --prompt aidl-lyrics-recognition
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+[This]() is how we recommend to install the project.
 
 ## Table of Contents <a name="toc"></a>
 1. [Introduction](#intro)
@@ -44,7 +36,7 @@ pip install -r requirements.txt
 To this day few research is done in music lyrics recognition which is still considered a complex task. For its approach two subtasks can be determined:
 
 1. The singing voice needs to be extracted from the song by means of source separation. What seems to be an easy task for the human brain, remains a brain teaser for digital signal processing because of the complexe mixture of signals.
-2. The second subtask aims to transcribe the obtained audio text of the singing voice into written text. This can be thought of as a speech recognition task. A lot of progress has been made for standard speech recognition tasks. Though, experiments with music made evident that the recognition of text of a singing voice is more complex than pure speech recognition due to its increasing acoustical features.
+2. The second subtask aims to transcribe the obtained audio of the singing voice into written text. This can be thought of as a speech recognition task. A lot of progress has been made for standard speech recognition tasks. Though, experiments with music made evident that the recognition of text of a singing voice is more complex than pure speech recognition due to its increasing acoustical features.
 
 Practical applications for music lyrics recognition such as the creation of karaoke versions or music information retrieval tasks motivate to tackle the aforementioned challenges.
 <p align="right"><a href="#toc">To top</a></p>
@@ -79,7 +71,7 @@ To reach our goals, we set up the following milestones:
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 2. Data Set <a name="dataset"></a>
-To train our model we opted for the [DALI data set](https://github.com/gabolsgabs/DALI), published in 2018. It is to this day the biggest data set in the field of singing voice research which aligns audio to notes and their lyrics along high quality standards. Access was granted to us for the first version, DALI v1, with 5358 songs in full duration and multiple languages. For more information please check as well [this article](https://transactions.ismir.net/articles/10.5334/tismir.30/), published by the International Society for Music Information Retrieval.
+To train our model we opted for the [DALI data set](https://github.com/gabolsgabs/DALI), published in 2018. It is to this day the biggest data set in the field of singing voice research which aligns audio to notes and their lyrics along high quality standards. Access was granted to us for the first version, DALI v1, with 5358 songs in full duration and multiple languages. For more information please check as well [this article](https://transactions.ismir.net/articles/10.5334/tismir.30/), published by the International Society for Music Information Retrieval. This is a graphical representation of the DALI data set:
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1"><img src="https://drive.google.com/uc?export=view&id=1cs0GjeBhxCCY2mSCqbnSrK9lI0XxjhF1" style="width: auto; max-width: 100%; height: 200px" title="dali_alignment" /></p>
     
@@ -92,13 +84,13 @@ _Figure 3: Horizontal granularity in DALI data set where paragraphs, lines, word
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 3. Working Environment <a name="working_env"></a>
-To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. For visualization of the results and to train our model we made the first free tests with [wandb](https://wandb.ai/site). For the full training with 580 MM parameters we then switched to a VM instance with one GPU (Tesla K80 or GeForce GT 1030) on [Google Cloud](https://cloud.google.com/). [PyTorch](https://pytorch.org/) is used as the overall framework.
+To develop the base model with 395 MM parameters, we used [Google Colab](https://colab.research.google.com/) as it was fast and easy for us to access. For visualization of the results we used [wandb](https://wandb.ai/site). For development we used a local environment. For the full training with 580 MM parameters we then switched to a VM instance with one GPU (Tesla K80) and 4 CPUs on [Google Cloud](https://cloud.google.com/). To improve performance we switched again to a VM with 4 GPUs (GeForce RTX 3090). [PyTorch](https://pytorch.org/) is used as the overall framework.
 
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL"><img src="https://drive.google.com/uc?export=view&id=1YnUwkz5QRjbJ3d3inmizqeO3kYA_WcBL" style="width: auto; max-width: 50%; height: 80px" title="Colab" /> <a href="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ"><img src="https://drive.google.com/uc?export=view&id=1_hBcgu2pRQETfRexso92teeKkfmZX-sQ" style="width: auto; max-width: 50%; height: 80px" title="wandb" /> <a href="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF"><img src="https://drive.google.com/uc?export=view&id=1s4UkYQ5tWJ22L24AiFqjn9KGFd-l-6cF" style="width: auto; max-width: 50%; height: 80px" title="GCloud" /> <a href="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z"><img src="https://drive.google.com/uc?export=view&id=1IouSQvK4_ibRmmvdc_nd-fbl1bHvIw7Z" style="width: auto; max-width: 50%; height: 80px" title="pytorch" /></p >
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 4. General Architecture <a name="architecture"></a>
-Few research is done so far for music lyrics recognition in general and mostly spectrograms in combination with CNNs are used. In the context of this project we explore the possibility of a highly performing alternative by combining two strong models: the Demucs model for the source separation task in combination with a Wav2Vec model for the transcription task. Demucs is currently the best performing model for source separation based on waveform and so far the only waveform-based model which can compete with more commonly used spectrogram-based models. Wav2Vec is considered the current state-of-the-art model for automatic speech recognition. Additionally, we implemented KenLM as a language model on top to improve the output of the transcription task. As final model implementation we opted for the concatenation of a pretrained Demucs and pretrained Wav2Vec model to perform end-to-end training. The loss will be computed comparing the ground truth lyrics against the lyrics obtained in the Wav2Vec output. Demucs is built of a convolutional encoder plus LSTM plus convolutional decoder. Wav2Vec is an unsupervised model with convolutional layers and a transformer working on character level. The final part of the Wav2Vec model applies a CTC algorithm (Connectionist Temporal Classification). This CTC algorithm helps to delete repeated characters in the prediction as the Wav2Vec model is predicting a character every few milliseconds.
+Few research is done so far for music lyrics recognition in general and mostly spectrograms in combination with CNNs are used. In the context of this project we explore the possibility of a highly performing alternative by combining two strong models: the Demucs model for the source separation task in combination with a Wav2Vec 2.0 model for the transcription task. Demucs is currently the best performing model for source separation based on waveform and so far the only waveform-based model which can compete with more commonly used spectrogram-based models. Wav2Vec is considered the current state-of-the-art model for automatic speech recognition. Additionally, we implemented KenLM as a language model on top to improve the output of the transcription task. As final model implementation we opted for the concatenation of a pretrained Demucs and pretrained Wav2Vec model to perform end-to-end training. The loss will be computed comparing the ground truth lyrics against the lyrics obtained in the Wav2Vec output. Demucs is built of a convolutional encoder plus LSTM plus convolutional decoder. The Wav2Vec is a model with convolutional layers and a transformer working on character level. For the final part of the Wav2Vec model we apply the CTC algorithm (Connectionist Temporal Classification). This CTC algorithm helps to delete repeated characters in the prediction as the Wav2Vec model is predicting a character every few milliseconds.
 
 ![image](https://drive.google.com/uc?export=view&id=1LGxdJUxxW76P5Kx58ALWSDbY23WUntNJ)
     
@@ -110,13 +102,6 @@ Few research is done so far for music lyrics recognition in general and mostly s
     
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>
     _Figure 5: CTC loss: architecture and its calculation_
-
-### 4.2 Evaluation Metrics <a name="metrics"></a>
-For KenLM we applied WER loss. The word error rate is obtained as a percentage dividing the total of wrongly predicted word (that is insertions, deletions and substitutions) by the total of the documents words. 
-    
-![image](https://drive.google.com/uc?export=view&id=1N4Ecf8kh_TDR_IatFsqR6TQBTHqyqQ86)      
-
-_Figure 6: WER loss_    
 
 <p align="right"><a href="#toc">To top</a></p>
 
