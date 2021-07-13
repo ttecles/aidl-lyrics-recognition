@@ -26,6 +26,7 @@ from lyre.model import DemucsWav2Vec
 
 load_dotenv()
 
+
 def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_loss=None, val_loss=None, epoch=None,
                accelerator: Accelerator = None, name=None):
     name = name or f"model_{int(time.time())}.pt"
@@ -77,9 +78,9 @@ def save_model(model, optimizer: optim.Optimizer, folder: pathlib.Path, train_lo
         print(f"Saved model in {filename}")
 
 
-def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None):
+def load_model(file: t.Union[str, pathlib.Path], model=None, optimizer=None, map_location=None):
     # First load into memory the variables that we will need to predict
-    checkpoint = torch.load(file)
+    checkpoint = torch.load(file, map_location=map_location)
 
     model = model or DemucsWav2Vec()
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -119,6 +120,7 @@ def parse_args():
     train_config.add_argument("--optimizer", choices=["adam", "sgd"], default="adam", help="Type of optimizer.")
     train_config.add_argument("--lr", type=float, default=1e-4, help="Optimizer learning rate.")
     train_config.add_argument("--wd", type=float, default=1e-4, help="Optimizer weight decay.")
+    train_config.add_argument("--no-train", action="store_true", help="Executes the test, no training will be applied.")
 
     group = train_config.add_mutually_exclusive_group()
     group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
@@ -191,11 +193,11 @@ def train(args):
 
         print("Preparing Datasets...")
         train_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(.8, .925),
-                                    workers=args.workers)
-        print(f"Train DaliDataset: {len(train_dataset)} chunks")
+                                    workers=args.workers) if not args.no_train else None
+        print(f"Train DaliDataset: {len(train_dataset)} chunks") if not args.no_train else None
         validation_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride,
-                                         ncc=(.925, .94), workers=args.workers)
-        print(f"Validation DaliDataset: {len(validation_dataset)} chunks")
+                                         ncc=(.925, .94), workers=args.workers) if not args.no_train else None
+        print(f"Validation DaliDataset: {len(validation_dataset)} chunks") if not args.no_train else None
         test_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(.94, None),
                                    workers=args.workers)
         print(f"Test DaliDataset: {len(test_dataset)} chunks")
@@ -234,9 +236,9 @@ def train(args):
         return torch.stack(waveforms), lyrics_ids
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=collate,
-                              num_workers=args.workers, drop_last=args.drop_last)
+                              num_workers=args.workers, drop_last=args.drop_last) if not args.no_train else None
     val_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
-                            num_workers=args.workers, drop_last=args.drop_last)
+                            num_workers=args.workers, drop_last=args.drop_last) if not args.no_train else None
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=collate,
                              num_workers=args.workers, drop_last=args.drop_last)
 
@@ -252,8 +254,8 @@ def train(args):
         'workers': args.workers,
         'freeze_demucs': args.freeze_demucs,
         'freeze_extractor': args.freeze_extractor,
-        'train_len': len(train_dataset),
-        'validation_len': len(validation_dataset),
+        'train_len': len(train_dataset) if not args.no_train else None,
+        'validation_len': len(validation_dataset) if not args.no_train else None,
         'test_len': len(test_dataset)
     }
 
@@ -298,7 +300,7 @@ def train(args):
 
     if args.load_model:
         print("Loading model from ", args.load_model)
-        load_model(args.load_model, model, optimizer)
+        load_model(args.load_model, model, optimizer, map_location=torch.device('cpu'))
 
     model, optimizer, train_loader, val_loader, test_loader = accelerator.prepare(
         model, optimizer, train_loader, val_loader, test_loader)
@@ -308,78 +310,80 @@ def train(args):
 
     signal.signal(signal.SIGUSR1, handler)
 
-    accelerator.print("Start Training with device", str(accelerator.device))
-    losses = {'train': [], 'valid': []}
-    model_dump_name = f"model_epoch_{str(uuid.uuid4()).split('-')[0]}.pt"
-    for epoch in range(args.epochs):
-        start_time = time.time()
-        model.train()
-        train_losses = []
-        for idx, batch in enumerate(train_loader):
-            waveforms, lyrics = batch
-            lyrics[lyrics == 0] = -100
-            output, voice = model(waveforms, labels=lyrics)
-            lyrics[lyrics == -100] = 0
-            train_losses.append(output.loss.item())
-
-            accelerator.backward(output.loss)
-
-            optimizer.step()
-            # if scheduler:
-            #     scheduler.step(loss)
-
-            if do_log:
-                run.log({"batch_train_loss": train_losses[-1]})
-            optimizer.zero_grad()
-
-        predicted_ids = torch.argmax(output.logits, dim=-1)
-        predicted = tokenizer.decode(predicted_ids[0])
-        if do_log:
-            run.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
-                                          sample_rate=demucs_samplerate),
-                     "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=wav2vec_samplerate),
-                     "predictions": wandb.Html(f"""<table style="width:100%">
-                       <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
-                       <tr><td>{epoch}</td>
-                       <td>{idx}</td>
-                       <td>{tokenizer.decode(lyrics[0])}</td>
-                       <td>{predicted}</td></tr>
-                       </table>"""),
-                     "epoch": epoch})
-
-        val_losses = []
-        model.eval()
-        for waveforms, lyrics in val_loader:
-            with torch.no_grad():
+    if not args.no_train:
+        accelerator.print("Start Training with device", str(accelerator.device))
+        losses = {'train': [], 'valid': []}
+        model_dump_name = f"model_epoch_{str(uuid.uuid4()).split('-')[0]}.pt"
+        for epoch in range(args.epochs):
+            start_time = time.time()
+            model.train()
+            train_losses = []
+            for idx, batch in enumerate(train_loader):
+                waveforms, lyrics = batch
                 lyrics[lyrics == 0] = -100
                 output, voice = model(waveforms, labels=lyrics)
-            val_losses.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
+                lyrics[lyrics == -100] = 0
+                train_losses.append(output.loss.item())
 
-        # Loss average
-        average_train_loss = np.mean(train_losses)
-        average_valid_loss = np.mean(val_losses)
-        losses['train'].append(average_train_loss)
-        losses['valid'].append(average_valid_loss)
+                accelerator.backward(output.loss)
 
-        if do_log:
-            run.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss})
+                optimizer.step()
+                # if scheduler:
+                #     scheduler.step(loss)
 
-        secs = int(time.time() - start_time)
-        mins = secs / 60
-        secs = secs % 60
-        accelerator.print(f"EPOCH: {epoch + 1},  | time in {int(mins)} minutes, {secs} seconds")
-        # print progress
-        accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
+                if do_log:
+                    run.log({"batch_train_loss": train_losses[-1]})
+                optimizer.zero_grad()
 
-        if args.model_folder and args.save_on_epoch:
+            predicted_ids = torch.argmax(output.logits, dim=-1)
+            predicted = tokenizer.decode(predicted_ids[0])
+            if do_log:
+                run.log({"input": wandb.Audio(waveforms[0].mean(0).cpu().numpy(),
+                                              sample_rate=demucs_samplerate),
+                         "voice": wandb.Audio(voice[0].cpu().numpy(), sample_rate=wav2vec_samplerate),
+                         "predictions": wandb.Html(f"""<table style="width:100%">
+                           <tr><th>Epoch</th> <th>Batch ID</th> <th>Lyric</th> <th>Predicted</th> </tr>
+                           <tr><td>{epoch}</td>
+                           <td>{idx}</td>
+                           <td>{tokenizer.decode(lyrics[0])}</td>
+                           <td>{predicted}</td></tr>
+                           </table>"""),
+                         "epoch": epoch})
+
+            val_losses = []
+            model.eval()
+            for waveforms, lyrics in val_loader:
+                with torch.no_grad():
+                    lyrics[lyrics == 0] = -100
+                    output, voice = model(waveforms, labels=lyrics)
+                val_losses.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
+
+            # Loss average
+            average_train_loss = np.mean(train_losses)
+            average_valid_loss = np.mean(val_losses)
+            losses['train'].append(average_train_loss)
+            losses['valid'].append(average_valid_loss)
+
+            if do_log:
+                run.log({"train_loss": average_train_loss, "valid_loss": average_valid_loss})
+
+            secs = int(time.time() - start_time)
+            mins = secs / 60
+            secs = secs % 60
+            accelerator.print(f"EPOCH: {epoch + 1},  | time in {int(mins)} minutes, {secs} seconds")
+            # print progress
+            accelerator.print(f'=> train loss: {average_train_loss:0.3f}  => valid loss: {average_valid_loss:0.3f}')
+
+            if args.model_folder and args.save_on_epoch:
+                save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
+                           val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator,
+                           name=model_dump_name)
+
+        accelerator.print("Training finished")
+
+        if args.model_folder and not args.save_on_epoch:
             save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
-                       val_loss=np.mean(losses["valid"]), epoch=epoch, accelerator=accelerator, name=model_dump_name)
-
-    accelerator.print("Training finished")
-
-    if args.model_folder and not args.save_on_epoch:
-        save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
-                   val_loss=np.mean(losses["valid"]), accelerator=accelerator)
+                       val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
     if test_loader:
         accelerator.print("Testing the model...")
