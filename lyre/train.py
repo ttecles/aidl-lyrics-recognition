@@ -377,7 +377,7 @@ def train(args):
 
     accelerator.print("Training finished")
 
-    if not (args.model_folder and args.save_on_epoch):
+    if args.model_folder and not args.save_on_epoch:
         save_model(model, optimizer, CHECKPOINT_FOLDER, train_loss=np.mean(losses["train"]),
                    val_loss=np.mean(losses["valid"]), accelerator=accelerator)
 
