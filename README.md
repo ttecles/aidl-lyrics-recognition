@@ -8,6 +8,7 @@ Advisor: [Gerard I. Gállego](https://www.linkedin.com/in/gerard-gallego/)
 
 GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://github.com/ttecles/aidl-lyrics-recognition)
 
+
 [This](https://github.com/ttecles/aidl-lyrics-recognition/blob/main/tutorials/Run_lyre_train.ipynb) is how we recommend to install the project.
 
 ## Table of Contents <a name="toc"></a>
