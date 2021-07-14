@@ -8,6 +8,5 @@ transformers
 jiwer
 python-dotenv
 accelerate
-soundfile
 pyctcdecode
 Flask
