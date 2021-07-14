@@ -8,7 +8,7 @@ Advisor: [Gerard I. Gállego](https://www.linkedin.com/in/gerard-gallego/)
 
 GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://github.com/ttecles/aidl-lyrics-recognition)
 
-[This]() is how we recommend to install the project.
+[This](https://github.com/ttecles/aidl-lyrics-recognition/blob/main/tutorials/Run_lyre_train.ipynb) is how we recommend to install the project.
 
 ## Table of Contents <a name="toc"></a>
 1. [Introduction](#intro)
@@ -22,7 +22,9 @@ GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://
 6. [Results and results improvement](#results)
     1. [Experiment 1: First train with the full dataset](#experiment_1)
     2. [Experiment 2: Overfitting with one chunk](#experiment_2)
-    3. [Experiment 3: Awesome experiment](#experiment_3)
+    3. [Experiment 3: Long run in Google VM 2](#experiment_3)
+    4. [Experiment 4: ](#experiment_4)
+    5. [Experiment 5: ](#experiment_5)
 7. [Web Application](#web_app)
 8. [Conclusions](#conclusions)
 9. [Imagine one month more...](#1_month)
@@ -151,13 +153,42 @@ We now gradually augmented the batch size using a controllable small dataset wit
     
 Step | Comments
 --------- | ------
-Hypothesis |  Model should train full set. 
+Hypothesis | Model should train full set. 
 Set up | ![image](https://drive.google.com/uc?export=view&id=1jzJ8-PeMwULL6TuWnmwnGJpr7vNYmxEP)
 Results | We need more power. It crashed because of bugs. Dataset is not totally clean.
-Conclusions |  Use multi GPU.
+Conclusions | Use multi GPU.
 Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1m98tqjg?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Long-run-in-Google-VM-2--Vmlldzo4NTA4Mzc)
   
 ![image](https://drive.google.com/uc?export=view&id=1v8aFYjGc2wh4xeqrDEt9YCo_hTWbK6I9)
+    
+<p align="right"><a href="#toc">To top</a></p>
+    
+    
+### 6.4 Experiment 4: Multiple GPUs with WER <a name="experiment_4"></a>
+When training on 5 GPUs, we were finally able to obtain some visuals. We even achieved to outperform the ConvTasNet model in [this paper](https://www.music-ir.org/mirex/abstracts/2020/RB1.pdf) regarding the initial WER.
+    
+Step | Comments
+--------- | ------
+Hypothesis | Performance will be better and we will obtain visuals (WER).
+Set up | ![image](https://drive.google.com/uc?export=view&id=1inK5Owh5Sopobfdz38GjsDQ9pRLekbBG)
+Results | We obtained a better WER (69.348) than the initial WER in [this paper](https://www.music-ir.org/mirex/abstracts/2020/RB1.pdf), table 3 (WER=75.91).
+Conclusions |  Performance improved and we can try to integrate the feature extractor in a follow-up experiment.
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1a7pdqoj/overview?workspace=user-akifisch), [Test results](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1rnfwaxi/overview?workspace=user-ttecles)
+    
+![image](https://drive.google.com/uc?export=view&id=1Y9r0tUsg4zAn5sv5lKSlUOeF8ej-CN0K)   
+    
+<p align="right"><a href="#toc">To top</a></p>
+    
+### 6.5 Experiment 5: Train with feature extractor <a name="experiment_5"></a>
+For the last experiment we considered a different learning rate and applied Wav2Vecs feature extractor.
+
+Step | Comments
+--------- | ------
+Hypothesis |  
+Set up | ![image](https://drive.google.com/uc?export=view&id=)
+Results | 
+Conclusions | 
+Links | [Run](), [Report]()
     
 <p align="right"><a href="#toc">To top</a></p>
     
@@ -221,3 +252,5 @@ https://transactions.ismir.net/articles/10.5334/tismir.30/
 https://distill.pub/2017/ctc/
     
 https://medium.com/descript/challenges-in-measuring-automatic-transcription-accuracy-f322bf5994f
+
+https://www.music-ir.org/mirex/abstracts/2020/RB1.pdf
