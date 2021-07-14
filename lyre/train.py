@@ -7,18 +7,22 @@ import tempfile
 import time
 import typing as t
 import uuid
+from multiprocessing import Pool
 
 import DALI as dali_code
 import ctcdecode
 import jiwer
+import kenlm
 import numpy as np
 import torch
 import torch.nn.functional as F
 import wandb
 from accelerate import Accelerator, DistributedDataParallelKwargs
 from dotenv import load_dotenv
+from pyctcdecode import BeamSearchDecoderCTC, LanguageModel, Alphabet
 from torch import optim
 from torch.utils.data import DataLoader, random_split
+from tqdm import tqdm
 from transformers import AutoTokenizer
 
 from lyre.data import DaliDataset, DEFAULT_SAMPLE_RATE
@@ -204,29 +208,25 @@ def train(args):
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
 
+    kenlm_model = kenlm.Model(str(TEXT_ARPA))
     # Beam decoder
-    vocab_dict = tokenizer.get_vocab()
-    sort_vocab = sorted((value, key) for (key, value) in vocab_dict.items())
-    vocab = [x[1].replace("|", " ") if x[1] not in tokenizer.all_special_tokens else "_" for x in sort_vocab]
-    beam_decoder = ctcdecode.BeamSearchDecoder(
-        vocab,
-        num_workers=args.workers or 4,
-        beam_width=128,
-        cutoff_prob=np.log(0.000001),
-        cutoff_top_n=40
-    )
+    # make alphabet
+    vocab_list = list(tokenizer.get_vocab().keys())
+    # convert ctc blank character representation
+    vocab_list[0] = ""
+    # replace special characters
+    vocab_list[1] = "⁇"
+    vocab_list[2] = "⁇"
+    vocab_list[3] = "⁇"
+    # convert space character representation
+    vocab_list[4] = " "
+    # specify ctc blank char index, since conventionally it is the last entry of the logit matrix
+    alphabet = Alphabet.build_alphabet(vocab_list, ctc_token_idx=0)
 
-    # KenLM
-    alpha = 2.5  # LM Weight
-    beta = 0.0  # LM Usage Reward
-    word_lm_scorer = ctcdecode.WordKenLMScorer(str(TEXT_ARPA), alpha, beta)
-    beam_lm_decoder = ctcdecode.BeamSearchDecoder(
-        vocab,
-        num_workers=args.workers or 4,
-        beam_width=128,
-        scorers=[word_lm_scorer],
-        cutoff_prob=np.log(0.000001),
-        cutoff_top_n=40)
+    beam_decoder = BeamSearchDecoderCTC(alphabet)
+    beam_lm_decoder = BeamSearchDecoderCTC(alphabet, LanguageModel(kenlm_model, alpha=.5, beta=5.))
+
+    # build the decoder and decode the logits
 
     def collate(batch: list):
         # tokenizer.batch_decode(encoded)
@@ -391,28 +391,31 @@ def train(args):
         wers = []
         table = wandb.Table(
             columns=["lyric", "predicted", "wer", "beam predicted", "beam wer", "beam LM predicted", "beam LM wer"])
-        with torch.no_grad():
-            for waveforms, lyrics in test_loader:
-                with torch.no_grad():
-                    lyrics[lyrics == 0] = -100
-                    output, voice = model(waveforms, labels=lyrics)
-                    lyrics[lyrics == -100] = 0
-                logits = accelerator.gather(output.logits)
-                lyrics = accelerator.gather(lyrics)
-                test_loss.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
-
-                # WER calculation
-                ground_truth = tokenizer.batch_decode(lyrics)
-                predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
-                beam_predicted = beam_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
-                kenlm_predicted = beam_lm_decoder.decode_batch(F.log_softmax(logits, dim=-1).detach().cpu())
-                for i, lyric in enumerate(lyrics):
-                    wer = jiwer.wer(ground_truth[i], predicted[i])
-                    beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
-                    beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
-                    wers.append((wer, beam_wer, beam_lm_wer))
-                    table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i], beam_wer * 100,
-                                   kenlm_predicted[i], beam_lm_wer * 100)
+        with Pool(args.workers) as pool:
+            with torch.no_grad():
+                for waveforms, lyrics in tqdm(test_loader, unit="batch"):
+                    with torch.no_grad():
+                        lyrics[lyrics == 0] = -100
+                        output, voice = model(waveforms, labels=lyrics)
+                        lyrics[lyrics == -100] = 0
+                    logits = accelerator.gather(output.logits)
+                    lyrics = accelerator.gather(lyrics)
+                    test_loss.append(accelerator.gather(output.loss.unsqueeze(0)).mean().item())
+                    log_probs = F.log_softmax(logits, dim=-1).detach().cpu()
+                    log_probs = [x.squeeze(0).numpy() for x in torch.chunk(log_probs, log_probs.size(0), dim=0)]
+                    # WER calculation
+                    ground_truth = tokenizer.batch_decode(lyrics)
+                    predicted = tokenizer.batch_decode(torch.argmax(logits, dim=-1).detach().cpu())
+                    beam_predicted = beam_decoder.decode_batch(pool, log_probs)
+                    kenlm_predicted = beam_lm_decoder.decode_batch(pool, log_probs)
+                    for i, lyric in enumerate(lyrics):
+                        wer = jiwer.wer(ground_truth[i], predicted[i])
+                        beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
+                        beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
+                        wers.append((wer, beam_wer, beam_lm_wer))
+                        table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i],
+                                       beam_wer * 100,
+                                       kenlm_predicted[i], beam_lm_wer * 100)
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers, axis=0)
