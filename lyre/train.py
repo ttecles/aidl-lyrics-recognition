@@ -2,7 +2,6 @@ import argparse
 import os
 import pathlib
 import signal
-import sys
 import tempfile
 import time
 import typing as t
@@ -10,7 +9,6 @@ import uuid
 from multiprocessing import Pool
 
 import DALI as dali_code
-import ctcdecode
 import jiwer
 import kenlm
 import numpy as np

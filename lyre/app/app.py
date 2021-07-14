@@ -1,21 +1,15 @@
-import io
 import math
 import os
 import pathlib
 import time
-import uuid
-from multiprocessing import Pool
 
-import ctcdecode
-import kenlm
-import numpy as np
-import torch
 import julius
-from pyctcdecode import Alphabet, BeamSearchDecoderCTC, LanguageModel
-from torch.nn import functional as F
-from torch import nn
-import soundfile as sf
+import kenlm
+import torch
 from flask import Flask, render_template, request, send_from_directory, session, url_for
+from pyctcdecode import Alphabet, BeamSearchDecoderCTC, LanguageModel
+from torch import nn
+from torch.nn import functional as F
 from transformers import AutoTokenizer
 from werkzeug.utils import secure_filename, redirect
 
@@ -42,6 +36,7 @@ else:
         DEVICE = torch.device('cuda')
     else:
         DEVICE = torch.device('cpu')
+
 
 @app.before_first_request
 def _load_model():
