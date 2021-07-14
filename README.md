@@ -18,19 +18,16 @@ GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://
 2. [Data Set](#dataset)
 3. [Working Environment](#working_env)
 4. [General Architecture](#architecture)
-    1. [Main Hyperparameters](#main_hyperparameters)
-    2. [Evaluation Metrics](#metrics)
-5. [Preprocessing and tests](#tests)
-    1. [Preprocessing the data set](#dataset_preprocess)
-    2. [Fine-tuning of the parameters](#parameters)
+5. [Preprocessing the data set](#dataset_preprocess)
 6. [Results and results improvement](#results)
     1. [Experiment 1: First train with the full dataset](#experiment_1)
     2. [Experiment 2: Overfitting with one chunk](#experiment_2)
     3. [Experiment 3: Awesome experiment](#experiment_3)
 7. [Web Application](#web_app)
 8. [Conclusions](#conclusions)
-9. [Next Steps](#next_steps)
-10. [References](#references)
+9. [Imagine one month more...](#1_month)
+10. [Next Steps](#next_steps)
+11. [References](#references)
 
 ## 1. Introduction <a name="intro"></a>
 To this day few research is done in music lyrics recognition which is still considered a complex task. For its approach two subtasks can be determined:
@@ -44,7 +41,7 @@ Practical applications for music lyrics recognition such as the creation of kara
 ### 1.1 Motivation <a name="motivation"></a>
 Our decision for a lyrics recognition task with deep learning techniques is the attempt to combine several of our personal and professional interests. All team members have a more or less professional background in the music industry additionally to a particular interest in source separation tasks and natural language processing.
 
-<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j"><img src="https://drive.google.com/uc?export=view&id=1k1CzCI42BNfLrkkPh_0qoyXq_-fJic3j" style="width: auto; max-width: 50%; height: 100px" title="motivation" /></p>           
+<p align="middle"><a href="https://drive.google.com/uc?export=view&id=1KoE4vdRS6_0sFr_Sb_7tIKTsaiF1NyMd"><img src="https://drive.google.com/uc?export=view&id=1KoE4vdRS6_0sFr_Sb_7tIKTsaiF1NyMd" style="width: auto; max-width: 50%; height: 100px" title="motivation" /></p>           
        
 _Figure 1<span>: Our passion for music, language and deep learning combined\.</span>_
 
@@ -105,31 +102,15 @@ Few research is done so far for music lyrics recognition in general and mostly s
 
 <p align="right"><a href="#toc">To top</a></p>
 
-## 5. Preprocessing and tests <a name="tests"></a>
-### 5.1 Preprocessing the data set <a name="dataset_preprocess"></a>
-Preprocessing the data set correctly for our purpose was proven to be one of the major obstacles we encountered. We focused on songs in English only, that is 3491 songs in full duration. Preprocessing included omitting special characters as well as negative time stamps and transforming the lyrics in upper case only. To make sure to obtain meaningful results after training and to avoid cut-off lyrics, we prepared chunks. For these chunks we discarded words split among multiple notes at the beginning and end of each chunk and we cut out silent passages without voice. To make data accessible for our model, the audio waveform needed to be resampled to a sample rate of 44100 Hz.
+## 5. Preprocessing the data set <a name="dataset_preprocess"></a>
+Preprocessing the data set correctly for our purpose was proven to be one of the major obstacles we encountered. We focused on songs in English only, that is 3491 songs in full duration. Preprocessing included omitting special characters as well as negative time stamps and transforming the lyrics in upper case only. To make sure to obtain meaningful results after training and to avoid cut-off lyrics, we prepared chunks. For these chunks we discarded words overlapping among consecutive chunks and we cut out silent passages without voice. To make data accessible for our model, we decided to resample the audio waveform to a sample rate of 44100 Hz.
 As alignment is done automatically in DALI and groundtruth is available only for few audio samples, we followed the suggestions for train/validation/test split by the authors. That is:
 
 ![image](https://drive.google.com/uc?export=view&id=17tIQ9EroDUCo4dG-1tF6OZDlSVmv5aii)    
     _Figure 7: Suggested NCCt scores for train, validation and test_
     
 where NCCt is a correlation score which indicates how accurate the automatic alignment is. Higher means better. The number of tracks refers to the whole data set, including as well songs in other languages for both the first and second version of the dataset.
-
-![image](https://drive.google.com/uc?export=view&id=1tDukLCKRWCIfKMtsCoh-WGEUI7jFvv5V)    
-    _Figure 8: Automatic alignment of singing voice and text in DALI with teacher-student paradigm based on NCCt score for the student_
-<p align="right"><a href="#toc">To top</a></p>
-
-### 5.2 Fine-tuning of the parameters <a name="parameters"></a>
     
-Parameter | Demucs  | Wav2Vec  | KenLM (n-gram)
---------- | ------- | -------- | --------------
-Optimizer | Adam | Adam |  
-Learning rate | 0.0001 | 0.0001 |
-Weight decay | 0.0001 | 0.0001 |
-Audio length | 10 sec. | 10 sec. |
-Batch Size |   |   |  
-Epochs |   |   |  
-
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 6. Results and results improvement <a name="results"></a>
@@ -179,19 +160,26 @@ Links | [Run], [Report]
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 8. Conclusions <a name="conclusions"></a>
-As already mentioned before recognition tasks in music remain complex. Additionally, today as then the community laments a lack of well structured, aligned, large data sets for music information retrieval tasks. In consequence we needed to address the challenge to find an appropriate dataset and model architecture. Few literature for reference was available. We believe that our suggestion is a powerful solution for lyrics recognition. Though, its high computational cost in terms of time and money is evident and implementation remains to be optimized.
+As already mentioned before recognition tasks in music are considered to remain complex. This could be confirmed as well for our lyrics recognition task in particular. The following reasons are determined: Today as then the community laments a lack of well structured, aligned, large data sets for music information retrieval tasks. Furthermore, few literature for reference was available. In consequence we needed to address the challenge to find appropriate dataset and model architecture. We found it particularly hard not only to understand potential model architectures but also to prepare the data appropriately. The finding that freezing features inside of a pretrained model would be necessary, was a special takeaway. We believe that our suggestion is a powerful solution for lyrics recognition. Though, its high computational cost in terms of time and money is evident and implementation remains to be optimized.
+<p align="right"><a href="#toc">To top</a></p>
+    
+## 9. Imagine 1 month more... <a name="1_month"></a>
+Based on our findings we consider the following scenarios worth further investigation: 
+* Train end-to-end after unfreezing Demucs
+* Train more epochs
+* Faster implementation of beam search
+* Train with different models
+<p align="right"><a href="#toc">To top</a></p>
+    
+## 10. Next Steps <a name="next_steps"></a>
+In a broader sense and in the context of music information retrieval tasks in general, further research could be done for:
+* Melody extraction
+* Chords transcription
+* Summary of the lyrics
+* Contribution to larger datasets of high quality
 <p align="right"><a href="#toc">To top</a></p>
 
-## 9. Next Steps <a name="next_steps"></a>
-Further research could be done for:
-* melody extraction
-* chords transcription
-* summary of the lyrics
-* pitch recognition
-* contribution to larger datasets of high quality
-<p align="right"><a href="#toc">To top</a></p>
-
-## 10. References <a name="references"></a>
+## 11. References <a name="references"></a>
 https://towardsdatascience.com/wav2vec-2-0-a-framework-for-self-supervised-learning-of-speech-representations-7d3728688cae
     
 https://ieeexplore.ieee.org/abstract/document/5179014
