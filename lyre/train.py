@@ -107,6 +107,8 @@ def parse_args():
     train_config.add_argument("--log_all", action="store_true",
                               help="Flag to log in all processes, otherwise only in rank0.", )
     train_config.add_argument("--ncc", type=float, default=0,
+                              help="Train, validate and test only with files with NCC score bigger than NCC.")
+    train_config.add_argument("--ncc-train", type=float, default=.8,
                               help="Train only with files with NCC score bigger than NCC.")
     train_config.add_argument("--train-split", type=float, default=0.7,
                               help="Train proportion. Requires --ncc to be specified.")
@@ -194,7 +196,8 @@ def train(args):
     else:
 
         print("Preparing Datasets...")
-        train_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride, ncc=(.8, .925),
+        train_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride,
+                                    ncc=(args.ncc_train, .925),
                                     workers=args.workers) if not args.no_train else None
         print(f"Train DaliDataset: {len(train_dataset)} chunks") if not args.no_train else None
         validation_dataset = DaliDataset(dali_data, DALI_AUDIO_PATH, length=audio_length, stride=stride,
