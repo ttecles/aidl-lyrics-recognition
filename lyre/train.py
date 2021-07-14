@@ -419,7 +419,7 @@ def train(args):
                                            beam_wer * 100,
                                            kenlm_predicted[i], beam_lm_wer * 100)
                         else:
-                            print("Warning: emtpy lyric")
+                            print(f"Warning: emtpy ground truth for lyric {lyric}")
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers, axis=0)
