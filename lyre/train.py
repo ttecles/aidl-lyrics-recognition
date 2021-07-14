@@ -208,9 +208,8 @@ def train(args):
     vocab_dict = tokenizer.get_vocab()
     sort_vocab = sorted((value, key) for (key, value) in vocab_dict.items())
     vocab = [x[1].replace("|", " ") if x[1] not in tokenizer.all_special_tokens else "_" for x in sort_vocab]
-    vocabulary = vocab
     beam_decoder = ctcdecode.BeamSearchDecoder(
-        vocabulary,
+        vocab,
         num_workers=args.workers or 4,
         beam_width=128,
         cutoff_prob=np.log(0.000001),
@@ -222,7 +221,7 @@ def train(args):
     beta = 0.0  # LM Usage Reward
     word_lm_scorer = ctcdecode.WordKenLMScorer(str(TEXT_ARPA), alpha, beta)
     beam_lm_decoder = ctcdecode.BeamSearchDecoder(
-        vocabulary,
+        vocab,
         num_workers=args.workers or 4,
         beam_width=128,
         scorers=[word_lm_scorer],
