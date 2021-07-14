@@ -125,6 +125,8 @@ def parse_args():
     train_config.add_argument("--lr", type=float, default=1e-4, help="Optimizer learning rate.")
     train_config.add_argument("--wd", type=float, default=1e-4, help="Optimizer weight decay.")
     train_config.add_argument("--no-train", action="store_true", help="Executes the test, no training will be applied.")
+    train_config.add_argument("--alpha", type=float, default=0.5, help="Executes the test, no training will be applied.")
+    train_config.add_argument("--beta", type=float, default=3, help="Executes the test, no training will be applied.")
 
     group = train_config.add_mutually_exclusive_group()
     group.add_argument("--fp16", action="store_true", help="If passed, will use FP16 training.")
@@ -225,7 +227,7 @@ def train(args):
     alphabet = Alphabet.build_alphabet(vocab_list, ctc_token_idx=0)
 
     beam_decoder = BeamSearchDecoderCTC(alphabet)
-    beam_lm_decoder = BeamSearchDecoderCTC(alphabet, LanguageModel(kenlm_model, alpha=.5, beta=5.))
+    beam_lm_decoder = BeamSearchDecoderCTC(alphabet, LanguageModel(kenlm_model, alpha=args.alpha, beta=args.beta))
 
     # build the decoder and decode the logits
 
