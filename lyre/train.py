@@ -253,6 +253,8 @@ def train(args):
         'weight_decay': args.wd,
         'optimizer': args.optimizer,
         # 'dropout': args.dropout,
+        "alpha": args.alpha,
+        "beta": args.beta,
         'workers': args.workers,
         'freeze_demucs': args.freeze_demucs,
         'freeze_extractor': args.freeze_extractor,
