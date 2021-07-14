@@ -18,11 +18,13 @@ from lyre.model import DemucsWav2Vec
 ROOT = pathlib.Path(__file__).parent.absolute()
 app = Flask(__name__, template_folder=str(ROOT / "template"))
 
-CHECKPOINT = "/home/joan/AIDL/aidl-lyrics-recognition/data/checkpoint/model_epoch_b6a4718e.pt"
-TEXT_ARPA = "/home/joan/AIDL/aidl-lyrics-recognition/data/text.arpa"
+CHECKPOINT = os.environ["CHECKPOINT"]
+TEXT_ARPA = os.environ["TEXT_ARPA"]
 CHUNK_LENGTH = 5  # in seconds
-MAX_BATCH = 64
-MAX_LENGTH = 60  # Max length in seconds of audio processed
+MAX_BATCH = os.environ.get("MAX_BATCH", 64)
+MAX_LENGTH = os.environ.get("MAX_LENGTH", 30)  # Max length in seconds of audio processed
+ALPHA = float(os.environ.get("ALPHA", .5))
+BETA = float(os.environ.get("BETA", 3))
 
 MODEL: nn.Module = None
 TOKENIZER = None
@@ -69,9 +71,8 @@ def _load_model():
 
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
 app.config['UPLOAD_EXTENSIONS'] = {'.mp3', '.wav'}
-app.config['UPLOAD_PATH'] = '/tmp/uploads'
-app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
-app.config['SECRET_KEY'] = app.secret_key
+app.config['UPLOAD_PATH'] = '/tmp'
+app.secret_key = os.environ["SECRET_KEY"]
 
 
 def validate_audio(stream):
@@ -100,9 +101,10 @@ def index():
         filename = secure_filename(uploaded_file.filename)
         if filename != '':
             print("Processing file ", filename)
-            uploaded_file.save('/tmp/' + uploaded_file.filename)
+            file = os.path.join(app.config['UPLOAD_PATH'], uploaded_file.filename)
+            uploaded_file.save(file)
             try:
-                waveform, samplerate = ta.load('/tmp/' + uploaded_file.filename)
+                waveform, samplerate = ta.load(file)
             except RuntimeError as e:
                 app.logger.info(e)
                 return render_template('index.html', message="Format not recognised"), 400
