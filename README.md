@@ -186,14 +186,14 @@ For the last experiment we considered a different learning rate and applied Wav2
 Step | Comments
 --------- | ------
 Hypothesis | Get better results by fine-tuning feature extractor.
-Set up | ![image](https://drive.google.com/uc?export=view&id=1QZD-cKQ7MbcyX2E2lemnpQWa-dffh1TI)
-Results | 
-Conclusions | 
-Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/3r36d1qa/overview?workspace=user-akifisch), [Report]()
+Set up | audio length: 5, learning rate: 1e-5, batch size: 42, epochs: 3, train length: 110030, alpha: 0.5, beta: 5.0
+Results | WER: 68.593, BEAMSEARCH WER: 68.064, LM: 73.656
+Conclusions | There is room for improvement in the language model.
     
 <p align="right"><a href="#toc">To top</a></p>
     
 ## 7. Web Application <a name="web_app"></a>
+To show the results of our project, we additionally deployed a web application.
     
 <p align="right"><a href="#toc">To top</a></p>
 
