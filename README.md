@@ -97,7 +97,7 @@ Few research is done so far for music lyrics recognition in general and mostly s
 <p align="right"><a href="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r"><img src="https://drive.google.com/uc?export=view&id=1fkhAahhfkPNFG-J4BxjxOLnXTDodUv8r" style="width: auto; max-width: 100%; height: 250px" title="Demucs" /> <a href="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK"><img src="https://drive.google.com/uc?export=view&id=1HvDAh3QXVgdHqbUupv_Du3V5raWcZ2dK" style="width: auto; max-width: 100%; height: 250px" title="wav2vec" /><p > 
 
 ![image](https://drive.google.com/uc?export=view&id=1GRGI8rrg4noZMoFKxSjcshsHOj1jD_3z)    
-    _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture and the KenLM language model on top_
+    _Figure 4: Overall model architecture with detailed insides in Demucs and Wav2Vec architecture_
 <p align="right"><a href="#toc">To top</a></p>
     
 <p align="middle"><a href="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M"><img src="https://drive.google.com/uc?export=view&id=1XmH6hv-9iC0u5k-a01VmuAzQZM4vGz5M" style="width: auto; max-width: 100%; height: 450px" title="ctc_loss_1" /> <a href="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0"><img src="https://drive.google.com/uc?export=view&id=15KBnAoTLgT2WHMrjUrZWIFNFYu3m6to0" style="width: auto; max-width: 100%; height: 80px" title="ctc_loss_2" /></p>
