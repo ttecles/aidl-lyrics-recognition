@@ -410,13 +410,16 @@ def train(args):
                     beam_predicted = beam_decoder.decode_batch(pool, log_probs)
                     kenlm_predicted = beam_lm_decoder.decode_batch(pool, log_probs)
                     for i, lyric in enumerate(lyrics):
-                        wer = jiwer.wer(ground_truth[i], predicted[i])
-                        beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
-                        beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
-                        wers.append((wer, beam_wer, beam_lm_wer))
-                        table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i],
-                                       beam_wer * 100,
-                                       kenlm_predicted[i], beam_lm_wer * 100)
+                        if ground_truth[i]:
+                            wer = jiwer.wer(ground_truth[i], predicted[i])
+                            beam_wer = jiwer.wer(ground_truth[i], beam_predicted[i])
+                            beam_lm_wer = jiwer.wer(ground_truth[i], kenlm_predicted[i])
+                            wers.append((wer, beam_wer, beam_lm_wer))
+                            table.add_data(tokenizer.decode(lyric), predicted[i], wer * 100, beam_predicted[i],
+                                           beam_wer * 100,
+                                           kenlm_predicted[i], beam_lm_wer * 100)
+                        else:
+                            print("Warning: emtpy lyric")
 
         test_loss = np.mean(test_loss)
         test_wer = np.mean(wers, axis=0)
