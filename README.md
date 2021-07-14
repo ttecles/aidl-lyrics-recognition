@@ -23,7 +23,7 @@ GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://
     1. [Experiment 1: First train with the full dataset](#experiment_1)
     2. [Experiment 2: Overfitting with one chunk](#experiment_2)
     3. [Experiment 3: Long run in Google VM 2](#experiment_3)
-    4. [Experiment 4: ](#experiment_4)
+    4. [Experiment 4: Multiple GPUs with WER](#experiment_4)
     5. [Experiment 5: ](#experiment_5)
 7. [Web Application](#web_app)
 8. [Conclusions](#conclusions)
