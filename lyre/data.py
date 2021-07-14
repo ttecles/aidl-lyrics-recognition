@@ -58,6 +58,10 @@ class Chunk:
     audio_end: int
     lyrics: str
 
+def remove_special_characters(text):
+    # define the pattern to keep
+    pat = r'[^a-zA-z\'\s]'
+    return re.sub(pat, '', text)
 
 def _process_file(entry, samplerate, length, stride):
     chunk_map = []
@@ -135,7 +139,7 @@ def _process_file(entry, samplerate, length, stride):
                 chunk_end,
                 audio_start,
                 audio_end,
-                text.upper(),
+                remove_special_characters(text.upper()),
             )
             if not 0 <= chunk_start <= audio_start < audio_end <= chunk_end or not text \
                 or chunk_end - chunk_start < MIN_LENGTH * samplerate:
