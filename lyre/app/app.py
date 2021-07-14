@@ -66,7 +66,7 @@ def _load_model():
     # specify ctc blank char index, since conventionally it is the last entry of the logit matrix
     alphabet = Alphabet.build_alphabet(vocab_list, ctc_token_idx=0)
 
-    LM = BeamSearchDecoderCTC(alphabet, LanguageModel(kenlm_model, alpha=.5, beta=5.))
+    LM = BeamSearchDecoderCTC(alphabet, LanguageModel(kenlm_model, alpha=ALPHA, beta=BETA))
 
 
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
