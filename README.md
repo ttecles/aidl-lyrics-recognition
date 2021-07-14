@@ -114,10 +114,9 @@ where NCCt is a correlation score which indicates how accurate the automatic ali
 <p align="right"><a href="#toc">To top</a></p>
 
 ## 6. Results and results improvement <a name="results"></a>
-To our surprise we obtained initially a negative loss which could be explained by the training of data slices containing no lyrics. Furthermore, one of our training runs showed the level of corruption for Demucs: the voice quality, epoch by epoch, got worse. Considering different learning rates and optimizers for Demucs and Wav2Vec proved to be reasonable as Wav2Vec needed more attention in terms of fine-tuning than already pretrained Demucs. To make sure our model was working, a sanity check came in handy where we tested the model on a small batch on its possibility to overfit. We gradually augmented the batch size using a controllable small dataset with a NCCt score higher than 0.95 to make sure our model would still train properly.
-<p align="right"><a href="#toc">To top</a></p>
     
 ### 6.1 Experiment 1: First train with the full dataset <a name="experiment_1"></a> 
+When doing a first train run over the full dataset, that is 59958 chunks, to our surprise we obtained initially a negative loss. This could be explained by the training of data slices containing no lyrics.
     
 Step | Comments
 --------- | ------
@@ -127,10 +126,13 @@ Results | Our model shows weird metrics.
 Conclusions |  We are not sure if our model is even training.
 Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/mhujqbrx?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/First-run-with-full-dataset--Vmlldzo4NDEzNjM)
     
+![image](https://drive.google.com/uc?export=view&id=1BqMU066BFjwMHrClb_mQjZyD0qlu5pdU)
+    
 <p align="right"><a href="#toc">To top</a></p>
     
 ### 6.2 Experiment 2: Overfitting with one chunk <a name="experiment_2"></a>
-    
+To make sure our model was actually working properly, a sanity check came in handy now where we tested the model on a small batch on its possibility to overfit. This training run showed as well the level of corruption for Demucs: the voice quality, epoch by epoch, got worse. Please see below the audio waveform at step 0 compared to step 29 for reference.  
+        
 Step | Comments
 --------- | ------
 Hypothesis | Our model works if it is “able” to overfit.
@@ -140,18 +142,22 @@ Conclusions | Our model is working and actually training.
 Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1nofaz64?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Overfit-1-chunk--Vmlldzo4NDEzNzc?accessToken=te8rgaea48t9a6rhaa2y15ymhfwurxnvnkcn0axjiqjew14e9d6i96re4ngqxdl5), [Audio track](https://drive.google.com/file/d/1-GKAjg45Fm3DNuVY8_A0AgwmUwDdGiNy/view?usp=sharing)
 
 ![image](https://drive.google.com/uc?export=view&id=1fI5c9Dob0yS7VtYOFcbNEVyn6VhST0Tm) ![image](https://drive.google.com/uc?export=view&id=1Wzr_bDE01l8Zb66tteI6_H36IeMS8Axb)
+![image](https://drive.google.com/uc?export=view&id=194_nhz_H_w9hZoYHMqgeo1rGo4nLAtFX) ![image](https://drive.google.com/uc?export=view&id=1jFvRlyaS64SJ6_OzR9VPXMlbUeCTMoNm)
     
 <p align="right"><a href="#toc">To top</a></p>
     
-### 6.3 Experiment 3: Awesome experiment <a name="experiment_3"></a>
+### 6.3 Experiment 3: Long run in Google VM 2 <a name="experiment_3"></a>
+We now gradually augmented the batch size using a controllable small dataset with a NCCt score higher than 0.95 to make sure our model would still train properly.
     
 Step | Comments
 --------- | ------
-Hypothesis |  
-Set up | 
-Results | 
-Conclusions |  
-Links | [Run], [Report]
+Hypothesis |  Model should train full set. 
+Set up | ![image](https://drive.google.com/uc?export=view&id=1jzJ8-PeMwULL6TuWnmwnGJpr7vNYmxEP)
+Results | We need more power. It crashed because of bugs. Dataset is not totally clean.
+Conclusions |  Use multi GPU.
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/1m98tqjg?workspace=user-akifisch), [Report](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/reports/Long-run-in-Google-VM-2--Vmlldzo4NTA4Mzc)
+  
+![image](https://drive.google.com/uc?export=view&id=1v8aFYjGc2wh4xeqrDEt9YCo_hTWbK6I9)
     
 <p align="right"><a href="#toc">To top</a></p>
     
