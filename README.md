@@ -24,7 +24,7 @@ GitHub repository: [https://github.com/ttecles/aidl-lyrics-recognition](https://
     2. [Experiment 2: Overfitting with one chunk](#experiment_2)
     3. [Experiment 3: Long run in Google VM 2](#experiment_3)
     4. [Experiment 4: Multiple GPUs with WER](#experiment_4)
-    5. [Experiment 5: ](#experiment_5)
+    5. [Experiment 5: Train with feature extractor](#experiment_5)
 7. [Web Application](#web_app)
 8. [Conclusions](#conclusions)
 9. [Imagine one month more...](#1_month)
@@ -184,11 +184,11 @@ For the last experiment we considered a different learning rate and applied Wav2
 
 Step | Comments
 --------- | ------
-Hypothesis |  
-Set up | ![image](https://drive.google.com/uc?export=view&id=)
+Hypothesis | Get better results by fine-tuning feature extractor.
+Set up | ![image](https://drive.google.com/uc?export=view&id=1QZD-cKQ7MbcyX2E2lemnpQWa-dffh1TI)
 Results | 
 Conclusions | 
-Links | [Run](), [Report]()
+Links | [Run](https://wandb.ai/aidl-lyrics-recognition/demucs+wav2vec/runs/3r36d1qa/overview?workspace=user-akifisch), [Report]()
     
 <p align="right"><a href="#toc">To top</a></p>
     
